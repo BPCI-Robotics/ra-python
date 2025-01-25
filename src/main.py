@@ -37,14 +37,9 @@ MY_SIG = BLUE_SIG
 
 ENEMY_SIG = RED_SIG if MY_SIG == BLUE_SIG else BLUE_SIG
 
-stake_state = False
-
-def toggle_stake():
-    global stake_state
-    stake_state = not stake_state
-
-    stake_grab_left.set(stake_state)
-    stake_grab_right.set(stake_state)
+def set_stake(state):
+    stake_grab_left.set(state)
+    stake_grab_right.set(state)
 
 def elevator_loop():
     while True:
@@ -63,6 +58,9 @@ def elevator_loop():
 
             lift_intake.stop()
             wait(400, MSEC)
+            
+            if (save_state != lift_intake.is_spinning() or save_direction != lift_intake.direction()):
+                continue
 
             if (save_state):
                 lift_intake.spin(save_direction, save_speed, PERCENT)
@@ -76,7 +74,7 @@ def debug_loop():
         brain.screen.set_cursor(3, 1)
         brain.screen.print("Donut elevator:", lift_intake.direction(), lift_intake.is_spinning(), lift_intake.velocity())
 
-        
+        wait(100, MSEC)
 
 def driver():
     drivetrain.set_drive_velocity(0, PERCENT)
@@ -95,10 +93,13 @@ def driver():
     controller.buttonL1.released(lift_intake.spin, (REVERSE, 0, PERCENT))
 
     lift_intake.spin(FORWARD, 100, PERCENT)
-    
+
+    GRABBING = True
+
+    controller.buttonR1.pressed(set_stake, (GRABBING,))
+    controller.buttonR2.pressed(set_stake, (not GRABBING,))
+
     Thread(elevator_loop)
     Thread(debug_loop)
-
-    controller.buttonR2.pressed(toggle_stake)
 
 competition = Competition(driver, lambda: None)
