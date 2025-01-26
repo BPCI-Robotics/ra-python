@@ -41,9 +41,63 @@ def set_stake(state):
     stake_grab_left.set(state)
     stake_grab_right.set(state)
 
+class PID_Motor:
+    def __init__(self, P: float, I: float, D: float, getter: Callable[[], float], setter: Callable[[float], None]):
+        self.Kp = P
+        self.Ki = I
+        self.Kd = D
+
+        self.get_val = getter
+        self.set_val = setter
+
+        self.setpoint = 0
+
+    def __call__(self, setpoint):
+        self.setpoint = setpoint
+    
+    def start(self):
+        Thread(self.loop)
+    
+    def loop(self):
+        # Value of offset - when the error is equal zero
+        offset = 320
+        
+        time_prev = brain.timer.time(SECONDS)
+        e_prev = 0
+
+        Kp = self.Kp
+        Ki = self.Ki
+        Kd = self.Kd
+
+        I = 0
+
+        while True:
+            sleep(1000 / 30, MSEC)
+
+            time = brain.timer.time(SECONDS)
+
+            # PID calculations
+            e = self.setpoint - self.get_val()
+                
+            P = Kp*e
+            I += Ki*e*(time - time_prev)
+            D = Kd*(e - e_prev)/(time - time_prev)
+
+            # calculate manipulated variable - MV 
+            MV = offset + P + I + D
+            
+            # update stored data for next iteration
+            e_prev = e
+            time_prev = time
+
+            self.set_val(MV)
+
+def get_turn_velocity() -> float:
+    return (drivetrain.lm.velocity() - drivetrain.rm.velocity()) / 2
+
 def elevator_loop():
     while True:
-        sleep(20, MSEC)
+        sleep(1000 / 30, MSEC)
         
         if (vision_sensor.object_count == 0):
             continue
@@ -76,16 +130,21 @@ def debug_loop():
 
         wait(100, MSEC)
 
-def driver():
+set_turn_velocity_PID = PID_Motor(0.6, 0.2, 0.1, get_turn_velocity, drivetrain.set_turn_velocity)
+set_drive_velocity_PID = PID_Motor(0.6, 0.2, 0.1, drivetrain.velocity, drivetrain.set_drive_velocity)
+
+def _init():
     drivetrain.set_drive_velocity(0, PERCENT)
     drivetrain.set_turn_velocity(0, PERCENT)
-    drivetrain.set_stopping(COAST)
+    
     drivetrain.drive(FORWARD)
 
+    drivetrain.set_stopping(COAST)
     lift_intake.set_stopping(BRAKE)
 
-    controller.axis1.changed(drivetrain.set_turn_velocity, (controller.axis1.position(), PERCENT))
-    controller.axis3.changed(drivetrain.set_drive_velocity, (controller.axis3.position(), PERCENT))
+def _controls():
+    controller.axis1.changed(set_drive_velocity_PID, (controller.axis1.position(),))
+    controller.axis3.changed(set_turn_velocity_PID, (controller.axis3.position(),))
     
     controller.buttonL2.pressed(lift_intake.spin, (FORWARD, 100, PERCENT))
     controller.buttonL2.released(lift_intake.spin, (FORWARD, 0, PERCENT))
@@ -99,7 +158,15 @@ def driver():
     controller.buttonR1.pressed(set_stake, (GRABBING,))
     controller.buttonR2.pressed(set_stake, (not GRABBING,))
 
-    Thread(elevator_loop)
-    Thread(debug_loop)
+def driver():
+
+    _init()
+    _controls()
+
+    set_turn_velocity_PID.start()
+    set_drive_velocity_PID.start()
+
+    Thread(elevator_loop) # 30 ups
+    Thread(debug_loop)    # 10 ups
 
 competition = Competition(driver, lambda: None)
