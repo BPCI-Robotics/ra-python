@@ -37,7 +37,7 @@ MY_SIG = BLUE_SIG
 
 ENEMY_SIG = RED_SIG if MY_SIG == BLUE_SIG else BLUE_SIG
 
-def set_stake(state):
+def set_stake(state: bool) -> None:
     stake_grab_left.set(state)
     stake_grab_right.set(state)
 
@@ -52,12 +52,20 @@ class PID_Motor:
 
         self.setpoint = 0
 
+        self.running = False
+
     def __call__(self, setpoint):
+        if (not self.running):
+            self.start()
         self.setpoint = setpoint
     
     def start(self):
+        self.running = True
         Thread(self.loop)
     
+    def stop(self):
+        self.running = False
+
     def loop(self):
         # Value of offset - when the error is equal zero
         offset = 320
@@ -71,7 +79,7 @@ class PID_Motor:
 
         I = 0
 
-        while True:
+        while self.running:
             sleep(1000 / 30, MSEC)
 
             time = brain.timer.time(SECONDS)
@@ -92,10 +100,7 @@ class PID_Motor:
 
             self.set_val(MV)
 
-def get_turn_velocity() -> float:
-    return (drivetrain.lm.velocity() - drivetrain.rm.velocity()) / 2
-
-def elevator_loop():
+def elevator_loop() -> None:
     while True:
         sleep(1000 / 30, MSEC)
         
@@ -119,7 +124,7 @@ def elevator_loop():
             if (save_state):
                 lift_intake.spin(save_direction, save_speed, PERCENT)
 
-def debug_loop():
+def debug_loop() -> None:
     while True:
         brain.screen.set_cursor(1, 1)
         brain.screen.print("LM:", drivetrain.lm.velocity())
@@ -130,10 +135,13 @@ def debug_loop():
 
         wait(100, MSEC)
 
+def get_turn_velocity() -> float:
+    return (drivetrain.lm.velocity() - drivetrain.rm.velocity()) / 2
+
 set_turn_velocity_PID = PID_Motor(0.6, 0.2, 0.1, get_turn_velocity, drivetrain.set_turn_velocity)
 set_drive_velocity_PID = PID_Motor(0.6, 0.2, 0.1, drivetrain.velocity, drivetrain.set_drive_velocity)
 
-def _init():
+def _init() -> None:
     drivetrain.set_drive_velocity(0, PERCENT)
     drivetrain.set_turn_velocity(0, PERCENT)
     
@@ -142,7 +150,7 @@ def _init():
     drivetrain.set_stopping(COAST)
     lift_intake.set_stopping(BRAKE)
 
-def _controls():
+def _controls() -> None:
     controller.axis1.changed(set_drive_velocity_PID, (controller.axis1.position(),))
     controller.axis3.changed(set_turn_velocity_PID, (controller.axis3.position(),))
     
@@ -161,10 +169,12 @@ def _controls():
 def driver():
 
     _init()
-    _controls()
 
     set_turn_velocity_PID.start()
     set_drive_velocity_PID.start()
+
+    # Give power to the controller after PID is ready.
+    _controls()
 
     Thread(elevator_loop) # 30 ups
     Thread(debug_loop)    # 10 ups
