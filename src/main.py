@@ -179,4 +179,8 @@ def driver():
     Thread(elevator_loop) # 30 ups
     Thread(debug_loop)    # 10 ups
 
-competition = Competition(driver, lambda: None)
+def auton():
+    pass
+    
+
+competition = Competition(driver, auton)
