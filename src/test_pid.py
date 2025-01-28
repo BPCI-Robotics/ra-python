@@ -4,21 +4,19 @@ from typing import Callable
 import threading
 
 # Here is a bunch of parameters you might want to try.
-
+#
+# PID values: Be very careful with adjustments, small adjustments make a big difference. Keep it in
+#             0.1s. If it is wrong, it can cause exponential growth and cause the program to fail.
+#
+# Proportional: if only this is set, it will linearly approach the target velocity.
+#               This is the one that should be set first.
+# Integral: this makes the robot more impatient when it is slow.
+#           It builds up as the error remains high for a while. Use carefully.
+# Derivative: this is based on how much the error changes over time.
+#             If there is a lot of oscillation, try changing this.
 CONFIG = {
-    # PID values: Be very careful with adjustments, small adjustments make a big difference. Keep it in
-    #             0.1s. If it is wrong, it can cause exponential growth and cause the program to fail.
-
-    # Proportional: if only this is set, it will linearly approach the target velocity.
-    #               This is the one that should be set first.
     "Kp": 1,
-
-    # Integral: this makes the robot more impatient when it is slow.
-    #           It builds up as the error remains high for a while. Use carefully.
     "Ki": 0,
-
-    # Derivative: this is based on how much the error changes over time.
-    #             If there is a lot of oscillation, try changing this.
     "Kd": 0,
 
     # When you crash, the integral term can crash out as the error accumulates. Setting this below one,
