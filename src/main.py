@@ -54,10 +54,20 @@ class PID_Motor:
 
         self.running = False
 
-    def __call__(self, setpoint):
+    # This is not thread-safe when block = True! It could deadlock!
+    def __call__(self, setpoint: float, block = False):
         if (not self.running):
             self.start()
+        
         self.setpoint = setpoint
+        t = brain.timer.time(SECONDS)
+        # print("Waiting for velocity to be", setpoint)
+
+        if block:
+            while abs(self.setpoint - self.get_val()) > 1:
+                sleep(1 / 30, SECONDS)
+        
+        # print("Set velocity to", setpoint, "which took: ", round(get_time() - t, 2), "seconds.")
     
     def start(self):
         self.running = True
@@ -68,7 +78,7 @@ class PID_Motor:
 
     def loop(self):
         # Value of offset - when the error is equal zero
-        offset = 320
+        offset = 0
         
         time_prev = brain.timer.time(SECONDS)
         e_prev = 0
@@ -80,7 +90,7 @@ class PID_Motor:
         I = 0
 
         while self.running:
-            sleep(1000 / 30, MSEC)
+            sleep(1 / 60, SECONDS)
 
             time = brain.timer.time(SECONDS)
 
@@ -93,12 +103,13 @@ class PID_Motor:
 
             # calculate manipulated variable - MV 
             MV = offset + P + I + D
-            
+
             # update stored data for next iteration
             e_prev = e
             time_prev = time
+            I *= 0.99
 
-            self.set_val(MV)
+            self.set_val(self.get_val() + MV)
 
 def elevator_loop() -> None:
     while True:
