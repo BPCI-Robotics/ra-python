@@ -19,10 +19,20 @@ class PID_Motor:
 
         self.running = False
 
-    def __call__(self, setpoint: float):
+    # This is not thread-safe when block = True! It could deadlock!
+    def __call__(self, setpoint: float, block = False):
         if (not self.running):
             self.start()
+        
         self.setpoint = setpoint
+        t = get_time()
+        print("Waiting for velocity to be", setpoint)
+
+        if block:
+            while abs(self.setpoint - self.get_val()) > 1:
+                sleep(1 / 30)
+        
+        print("Set velocity to", setpoint, "which took: ", round(get_time() - t, 2), "seconds.")
     
     def start(self):
         self.running = True
@@ -45,7 +55,7 @@ class PID_Motor:
         I = 0
 
         while self.running:
-            sleep(1 / 30)
+            sleep(1 / 60)
 
             time = get_time()
 
@@ -62,10 +72,11 @@ class PID_Motor:
             # update stored data for next iteration
             e_prev = e
             time_prev = time
-            I *= 0.99
+            # I *= 0.99
 
-            self.set_val(self.get_val() + MV * 0.1)
+            self.set_val(self.get_val() + MV)
 
+setpoint = 0
 vel = 0
 
 def _clamp(a, low, high):
@@ -75,23 +86,59 @@ def get_velocity() -> float:
     global vel
     return vel
 
-def set_velocity(n: float):
-    global vel
-    vel = n
+running = True
+def _set_velocity_loop():
+    global vel, setpoint, running
 
-set_velocity_pid = PID_Motor(0.1, 0, 0, get_velocity, set_velocity)
-set_velocity_pid.start()
+    # Based on VEX Drivetrain Calculator: Google Sheets
+    # 100 (percent speed) / response (seconds) = 100 / 0.39 = 256
+    # and then subtract 100 as a fudge factor
+    accel = 256 - 100
+    # I made this up.
+    brake = 300
+
+    rate = 120
+
+    while running:
+        sleep(1/rate)
+        if vel < setpoint:
+            vel += accel / rate
+        elif vel > setpoint:
+            vel -= brake / rate
+
+threading.Thread(target=_set_velocity_loop).start()
+
+def set_velocity(n: float):
+    global setpoint
+    setpoint = n
+
+set_velocity_pid = PID_Motor(1, 0.08, 0, get_velocity, set_velocity)
+
+target = 100
+
+def _series():
+    set_velocity_pid(100, True)
+    set_velocity_pid(0, True)
+    set_velocity_pid(75, True)
+    set_velocity_pid(-86, True)
+    set_velocity_pid(0, True)
+
+threading.Thread(target=_series).start()
 
 while True:
-    target = 100
 
-    set_velocity_pid(target)
-
-    while (abs(vel - target) > 0.01):
-
-        if vel > target * 2 or vel < 0:
+    try: 
+        if vel > target * 2 or vel < - target * 2:
             set_velocity_pid.stop()
+            running = False
             exit(f"Value error. target: {target}, vel: {vel}" )
 
-        print(f"{round(vel, 2)} -> {round(target, 2)} \t\t[" + "#" * int((vel/target)*40) + " " * (40 - int((vel/target)*40)) + "]")
-        sleep(1 / 10)
+        print(f"{round(vel, 2)} -> {round(set_velocity_pid.setpoint, 2)} \t\t[" + "#" * abs(int((vel/target)*40)) + " " * (40 - abs(int((vel/target)*40))) + ("]" if vel < target + 1 else ""))
+        sleep(1 / 15)
+    
+    except KeyboardInterrupt:
+        break
+
+set_velocity_pid.stop()
+running = False
+exit("Stopped all threads.")
