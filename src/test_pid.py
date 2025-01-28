@@ -1,10 +1,63 @@
-# This code runs on a computer.
 from time import time as get_time
 from time import sleep
 from typing import Callable
 import threading
-from pprint import pprint
 
+# Here is a bunch of parameters you might want to try.
+
+CONFIG = {
+    # PID values: Be very careful with adjustments, small adjustments make a big difference. Keep it in
+    #             0.1s. If it is wrong, it can cause exponential growth and cause the program to fail.
+
+    # Proportional: if only this is set, it will linearly approach the target velocity.
+    #               This is the one that should be set first.
+    "Kp": 1,
+
+    # Integral: this makes the robot more impatient when it is slow.
+    #           It builds up as the error remains high for a while. Use carefully.
+    "Ki": 0,
+
+    # Derivative: this is based on how much the error changes over time.
+    #             If there is a lot of oscillation, try changing this.
+    "Kd": 0,
+
+    # When you crash, the integral term can crash out as the error accumulates. Setting this below one,
+    # like 0.99 makes previous integral terms less valuable, preventing this issue. 
+    "integral_decay": 1,
+    
+    # Acceleration and braking: measured in percent max speed per second. For example, a robot which
+    # takes 0.5 seconds to reach max speed has 200 accel. If it takes 2 seconds to stop, it has 50 brake.
+    # This isn't an adjustment, this is a simulation parameter. Make it match reality.
+    "accel": 200,
+    "brake": 200,
+
+    # Frequency at which to print the current velocity.
+    "poll_frequency": 15,
+}
+
+# set_velocity_pid: instruct pid to change the velocity, second parameter stops execution until velocity
+#                   is reached. If it is not given, it doesn't wait.
+#
+# sleep: Sleep for a given number of seconds.
+#
+# crash: Directly set the actual velocity to a given number, 0 by default. This simulates an unexpected
+#        change in velocity. It also has an additional time parameter, where it gets stuck for a certain
+#        number of seconds. Test integral windup this way.
+def ROUTINE():
+    set_velocity_pid(100, True)
+    sleep(1)
+    set_velocity_pid(0, True)
+    sleep(1)
+    set_velocity_pid(75, False)
+    sleep(0.4)
+    crash(0, 2)
+    sleep(1)
+    set_velocity_pid(-86, True)
+    sleep(1)
+    set_velocity_pid(0, True)
+    sleep(1)
+
+# Everything past here is messy implementation and you probably don't want to touch it.
 
 class PID_Motor:
     def __init__(self, P: float, I: float, D: float, getter: Callable[[], float], setter: Callable[[float], None]):
@@ -72,7 +125,7 @@ class PID_Motor:
             # update stored data for next iteration
             e_prev = e
             time_prev = time
-            # I *= 0.99
+            I *= CONFIG["integral_decay"]
 
             self.set_val(self.get_val() + MV)
 
@@ -92,8 +145,8 @@ def _set_velocity_loop():
     global vel, setpoint
 
     # Thes are measured in percent velocity / second. So max speed in 0.5 seconds is 200
-    accel = 200
-    brake = 10
+    accel = CONFIG["accel"]
+    brake = CONFIG["brake"]
 
     rate = 120
 
@@ -120,27 +173,25 @@ def _set_velocity_loop():
             
 threading.Thread(target=_set_velocity_loop).start()
 
+def crash(v=0.0, t=0.0):
+    global vel
+    time_start = get_time()
+
+    vel = v
+    print("Crashed!")
+    while (get_time() - time_start < t):
+        vel = v
+
+
 def set_velocity(n: float):
     global setpoint
     setpoint = n
 
-set_velocity_pid = PID_Motor(1, 0, 0, get_velocity, set_velocity)
+set_velocity_pid = PID_Motor(CONFIG["Kp"], CONFIG["Ki"], CONFIG["Kd"], get_velocity, set_velocity)
 
 target = 100
 
-def _series():
-    set_velocity_pid(100, True)
-    sleep(1)
-    set_velocity_pid(0, True)
-    sleep(1)
-    set_velocity_pid(75, True)
-    sleep(1)
-    set_velocity_pid(-86, True)
-    sleep(1)
-    set_velocity_pid(0, True)
-    sleep(1)
-
-threading.Thread(target=_series).start()
+threading.Thread(target=ROUTINE).start()
 
 while True:
 
@@ -151,7 +202,7 @@ while True:
             exit(f"Value error. target: {target}, vel: {vel}" )
 
         print(f"{round(vel, 2)} -> {round(set_velocity_pid.setpoint, 2)} \t\t[" + "#" * abs(int((vel/target)*40)) + " " * (40 - abs(int((vel/target)*40))) + ("]" if vel < target + 1 else ""))
-        sleep(1 / 15)
+        sleep(1 / CONFIG["poll_frequency"])
     
     except KeyboardInterrupt:
         break
