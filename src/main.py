@@ -155,7 +155,6 @@ def _init() -> None:
     def _set_drive_velocity(v: float):
         drivetrain.set_drive_velocity(v)
 
-    # TODO: adjust the accel and brake parameters for optimal performance.
     set_turn_velocity = ControlledMotor(_get_turn_velocity, _set_turn_velocity, 100, 100, 60)
     set_drive_velocity = ControlledMotor(_get_drive_velocity, _set_drive_velocity, 100, 100, 60)
 
