@@ -26,11 +26,11 @@ drivetrain= DriveTrain(
                     Motor(Ports.PORT6, GearSetting.RATIO_6_1, True)
                 ), 
                 
-                319.19, # wheel travel
-                295,    # track width
-                40,     # wheel base
+                259.34, # wheel travel
+                310,    # track width
+                205,     # wheel base
                 MM,     # unit
-                360/600 # gear ratio (drivetrain rpm) / (motor rpm)
+                600/360 # gear ratio (drivetrain rpm) / (motor rpm)
             )
 
 MY_SIG = BLUE_SIG
@@ -41,78 +41,12 @@ def set_stake(state: bool) -> None:
     stake_grab_left.set(state)
     stake_grab_right.set(state)
 
-class ControlledMotor:
-    def __init__(self, get: Callable[..., float], set: Callable[[float], Any], accel: float, brake: float, rate = 60):
-        self.vel = 0.0
-        self.setpoint = 0.0
-
-        self.get = get
-        self.set = set
-
-        self.accel = accel
-        self.brake = brake
-        self.rate = rate
-
-        self.running = False
-    
-    def start(self) -> None:
-        self.running = True
-        Thread(self._loop)
-    
-    def get_velocity(self) -> float:
-        return self.vel
-    
-    def __call__(self, v: float):
-        self.set_velocity(v)
-
-    def set_velocity(self, v: float):
-        if not self.running:
-            self.start()
-        self.setpoint = v
-
-    def _loop(self):
-
-        accel = self.accel
-        brake = self.brake
-
-        rate = self.rate
-
-        while self.running:
-            self.set(self.vel)
-
-            # TODO: Check if this line should be removed.
-            self.vel = self.get()
-
-            sleep(1/rate, SECONDS)
-            
-            if self.vel < self.setpoint:
-                if self.vel <= 0:
-                    self.vel += brake / rate
-                    continue
-
-                if self.vel > 0:
-                    self.vel += accel / rate
-                    continue
-
-            if self.vel > self.setpoint:
-                if self.vel <= 0:
-                    self.vel -= accel / rate
-                    continue
-
-                if self.vel > 0:
-                    self.vel -= brake / rate
-                    continue
-    
-    def stop(self):
-        self.running = False
-
-
 def elevator_loop() -> None:
     while True:
         sleep(1000 / 30, MSEC)
-        
-        if (vision_sensor.object_count == 0):
-            continue
+
+        vision_sensor.take_snapshot(MY_SIG)
+
 
         if (vision_sensor.take_snapshot(MY_SIG)):
             continue
@@ -127,49 +61,50 @@ def elevator_loop() -> None:
             lift_intake.stop()
             wait(300, MSEC)
             lift_intake.spin(save_direction, save_speed, PERCENT)
-            
 
-def debug_loop() -> None:
-    while True:
-        brain.screen.set_cursor(1, 1)
-        brain.screen.print("LM:", drivetrain.lm.velocity())
-        brain.screen.set_cursor(2, 1)
-        brain.screen.print("RM:", drivetrain.rm.velocity())
-        brain.screen.set_cursor(3, 1)
-        brain.screen.print("Donut elevator:", lift_intake.direction(), lift_intake.is_spinning(), lift_intake.velocity())
 
-        wait(100, MSEC)
+
+class RollingAverage:
+    def __init__(self, getter, setter, size, poll_frequency):
+        self.inputs = [0] * size
+        self.pos = 0
+        self.size = size
+        self.poll_frequency = poll_frequency
+        self.getter = getter
+        self.setter = setter
+
+        Thread(self.loop)
+    
+    def _add_element(self, n: float):
+        self.inputs[self.pos] = n
+        self.pos = (self.pos + 1) % self.size
+    
+    def _get_val(self):
+        return sum(self.inputs) / self.size
+
+    def loop(self):
+        while True:
+            wait(1 / self.poll_frequency, SECONDS)
+            self._add_element(self.getter())
+            self.setter(self._get_val(), PERCENT)
+
 
 def _init() -> None:
-    global set_turn_velocity, set_drive_velocity
-
-    def _get_turn_velocity() -> float:
-        return (drivetrain.lm.velocity(PERCENT) - drivetrain.rm.velocity(PERCENT)) / 2
-
-    def _set_turn_velocity(v: float):
-        drivetrain.set_turn_velocity(v, PERCENT)
-
-    def _get_drive_velocity() -> float:
-        return drivetrain.velocity(PERCENT)
-
-    def _set_drive_velocity(v: float):
-        drivetrain.set_drive_velocity(v)
-
-    # TODO: adjust the accel and brake parameters for optimal performance.
-    set_turn_velocity = ControlledMotor(_get_turn_velocity, _set_turn_velocity, 100, 100, 60)
-    set_drive_velocity = ControlledMotor(_get_drive_velocity, _set_drive_velocity, 100, 100, 60)
 
     drivetrain.set_drive_velocity(0, PERCENT)
     drivetrain.set_turn_velocity(0, PERCENT)
     
+    lift_intake.set_velocity(0, PERCENT)
     drivetrain.drive(FORWARD)
 
     drivetrain.set_stopping(COAST)
     lift_intake.set_stopping(BRAKE)
 
 def _controls() -> None:
-    controller.axis1.changed(set_drive_velocity, (controller.axis1.position(),))
-    controller.axis3.changed(set_turn_velocity, (controller.axis3.position(),))
+
+    RollingAverage(controller.axis1.position, drivetrain.set_drive_velocity, 30, 60)
+
+    controller.axis3.changed(drivetrain.set_turn_velocity, (controller.axis3.position(),PERCENT))
     
     controller.buttonL2.pressed(lift_intake.spin, (FORWARD, 100, PERCENT))
     controller.buttonL2.released(lift_intake.spin, (FORWARD, 0, PERCENT))
@@ -184,17 +119,13 @@ def _controls() -> None:
     controller.buttonR2.pressed(set_stake, (not GRABBING,))
 
 def driver():
-
+    global set_turn_velocity, set_drive_velocity
     _init()
-
-    set_turn_velocity.start()
-    set_drive_velocity.start()
 
     # Give power to the controller after PID is ready.
     _controls()
 
     Thread(elevator_loop) # 30 ups
-    Thread(debug_loop)    # 10 ups
 
 def auton():
     pass
