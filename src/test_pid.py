@@ -120,7 +120,7 @@ class PID_Motor:
 
 
 
-motor = Motor(200, 200)
+motor = Motor(CONFIG["accel"], CONFIG["brake"])
 set_velocity_pid = PID_Motor(CONFIG["Kp"], CONFIG["Ki"], CONFIG["Kd"], motor.get_velocity, motor.set_velocity)
 
 crash = motor.crash
