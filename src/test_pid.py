@@ -1,7 +1,4 @@
-from time import time as get_time
-from time import sleep
-from typing import Callable
-import threading
+from vex_fake import *
 
 # Here is a bunch of parameters you might want to try.
 #
@@ -14,20 +11,20 @@ import threading
 #           It builds up as the error remains high for a while. Use carefully.
 # Derivative: this is based on how much the error changes over time.
 #             If there is a lot of oscillation, try changing this.
-CONFIG = {
-    "Kp": 1,
-    "Ki": 0,
-    "Kd": 0,
+CONFIG: dict[str, float] = {
+    "Kp": 0.3,
+    "Ki": 0.01,
+    "Kd": 0.0,
 
     # When you crash, the integral term can crash out as the error accumulates. Setting this below one,
     # like 0.99 makes previous integral terms less valuable, preventing this issue. 
-    "integral_decay": 1,
+    "integral_decay": 0.9,
     
     # Acceleration and braking: measured in percent max speed per second. For example, a robot which
     # takes 0.5 seconds to reach max speed has 200 accel. If it takes 2 seconds to stop, it has 50 brake.
     # This isn't an adjustment, this is a simulation parameter. Make it match reality.
-    "accel": 200,
-    "brake": 200,
+    "accel": 300,
+    "brake": 300,
 
     # Frequency at which to print the current velocity.
     "poll_frequency": 15,
@@ -42,18 +39,16 @@ CONFIG = {
 #        change in velocity. It also has an additional time parameter, where it gets stuck for a certain
 #        number of seconds. Test integral windup this way.
 def ROUTINE():
-    set_velocity_pid(100, True)
-    sleep(1)
-    set_velocity_pid(0, True)
-    sleep(1)
-    set_velocity_pid(75, False)
-    sleep(0.4)
-    crash(0, 2)
-    sleep(1)
-    set_velocity_pid(-86, True)
-    sleep(1)
-    set_velocity_pid(0, True)
-    sleep(1)
+    set_velocity_pid(0)
+    set_velocity_pid(100)
+    sleep(2, SECONDS)
+    set_velocity_pid(-100)
+    sleep(4, SECONDS)
+    set_velocity_pid(0)
+    sleep(2, SECONDS)
+    set_velocity_pid(100)
+    sleep(0.6, SECONDS)
+    set_velocity_pid(0)
 
 # Everything past here is messy implementation and you probably don't want to touch it.
 
@@ -76,27 +71,23 @@ class PID_Motor:
             self.start()
         
         self.setpoint = setpoint
-        t = get_time()
-        # print("Waiting for velocity to be", setpoint)
+        t = timer(SECONDS)
 
         if block:
             while abs(self.setpoint - self.get_val()) > 1:
-                sleep(1 / 30)
-        
-        # print("Set velocity to", setpoint, "which took: ", round(get_time() - t, 2), "seconds.")
+                sleep(1 / 30, SECONDS)
     
     def start(self):
         self.running = True
-        threading.Thread(target=self.loop).start()
+        threading.Thread(target=self._loop).start()
     
     def stop(self):
         self.running = False
 
-    def loop(self):
-        # Value of offset - when the error is equal zero
+    def _loop(self):
         offset = 0
         
-        time_prev = get_time()
+        time_prev = timer(SECONDS)
         e_prev = 0
 
         Kp = self.Kp
@@ -106,9 +97,9 @@ class PID_Motor:
         I = 0
 
         while self.running:
-            sleep(1 / 60)
+            sleep(1 / 60, SECONDS)
 
-            time = get_time()
+            time = timer(SECONDS)
 
             # PID calculations
             e = self.setpoint - self.get_val()
@@ -127,84 +118,30 @@ class PID_Motor:
 
             self.set_val(self.get_val() + MV)
 
-setpoint = 0
-vel = 0
-
-def _clamp(a, low, high):
-    return max(min(a, high), low)
-
-def get_velocity() -> float:
-    global vel
-    return vel
-
-stop_loop = threading.Event()
-
-def _set_velocity_loop():
-    global vel, setpoint
-
-    # Thes are measured in percent velocity / second. So max speed in 0.5 seconds is 200
-    accel = CONFIG["accel"]
-    brake = CONFIG["brake"]
-
-    rate = 120
-
-    while not stop_loop.is_set():
-        sleep(1/rate)
-        
-        if vel < setpoint:
-            if vel <= 0:
-                vel += brake / rate
-                continue
-
-            if vel > 0:
-                vel += accel / rate
-                continue
-
-        if vel > setpoint:
-            if vel <= 0:
-                vel -= accel / rate
-                continue
-
-            if vel > 0:
-                vel -= brake / rate
-                continue
-            
-threading.Thread(target=_set_velocity_loop).start()
-
-def crash(v=0.0, t=0.0):
-    global vel
-    time_start = get_time()
-
-    vel = v
-    print("Crashed!")
-    while (get_time() - time_start < t):
-        vel = v
 
 
-def set_velocity(n: float):
-    global setpoint
-    setpoint = n
+motor = Motor(200, 200)
+set_velocity_pid = PID_Motor(CONFIG["Kp"], CONFIG["Ki"], CONFIG["Kd"], motor.get_velocity, motor.set_velocity)
 
-set_velocity_pid = PID_Motor(CONFIG["Kp"], CONFIG["Ki"], CONFIG["Kd"], get_velocity, set_velocity)
-
-target = 100
+crash = motor.crash
 
 threading.Thread(target=ROUTINE).start()
 
 while True:
 
     try: 
-        if vel > target * 2 or vel < - target * 2:
+        if motor.vel > 200 or motor.vel < -200:
             set_velocity_pid.stop()
-            stop_loop.set()
-            exit(f"Value error. target: {target}, vel: {vel}" )
+            motor.stop()
+            exit(f"Value error. target: {motor.setpoint}, vel: {motor.vel}" )
 
-        print(f"{round(vel, 2)} -> {round(set_velocity_pid.setpoint, 2)} \t\t[" + "#" * abs(int((vel/target)*40)) + " " * (40 - abs(int((vel/target)*40))) + ("]" if vel < target + 1 else ""))
-        sleep(1 / CONFIG["poll_frequency"])
+        print(f"{round(motor.vel, 2)} -> {round(set_velocity_pid.setpoint, 2)} \t\t[" + "#" * abs(int((motor.vel/100)*40)) + " " * (40 - abs(int((motor.vel/100)*40))) + ("]" if motor.vel < 102 else ""))
+
+        sleep(1 / CONFIG["poll_frequency"], SECONDS)
     
     except KeyboardInterrupt:
         break
 
 set_velocity_pid.stop()
-stop_loop.set()
+motor.stop()
 exit("Stopped all threads.")
