@@ -41,75 +41,71 @@ def set_stake(state: bool) -> None:
     stake_grab_left.set(state)
     stake_grab_right.set(state)
 
-class PID_Motor:
-    def __init__(self, P: float, I: float, D: float, getter: Callable[[], float], setter: Callable[[float], None]):
-        self.Kp = P
-        self.Ki = I
-        self.Kd = D
+class ControlledMotor:
+    def __init__(self, get: Callable[..., float], set: Callable[[float], Any], accel: float, brake: float, rate = 60):
+        self.vel = 0.0
+        self.setpoint = 0.0
 
-        self.get_val = getter
-        self.set_val = setter
+        self.get = get
+        self.set = set
 
-        self.setpoint = 0
+        self.accel = accel
+        self.brake = brake
+        self.rate = rate
 
         self.running = False
-
-    # This is not thread-safe when block = True! It could deadlock!
-    def __call__(self, setpoint: float, block = False):
-        if (not self.running):
-            self.start()
-        
-        self.setpoint = setpoint
-        t = brain.timer.time(SECONDS)
-        # print("Waiting for velocity to be", setpoint)
-
-        if block:
-            while abs(self.setpoint - self.get_val()) > 1:
-                sleep(1 / 30, SECONDS)
-        
-        # print("Set velocity to", setpoint, "which took: ", round(get_time() - t, 2), "seconds.")
     
-    def start(self):
+    def start(self) -> None:
         self.running = True
-        Thread(self.loop)
+        Thread(self._loop)
+    
+    def get_velocity(self) -> float:
+        return self.vel
+    
+    def __call__(self, v: float):
+        self.set_velocity(v)
+
+    def set_velocity(self, v: float):
+        if not self.running:
+            self.start()
+        self.setpoint = v
+
+    def _loop(self):
+
+        accel = self.accel
+        brake = self.brake
+
+        rate = self.rate
+
+        while self.running:
+            self.set(self.vel)
+
+            # TODO: Check if this line should be removed.
+            self.vel = self.get()
+
+            sleep(1/rate, SECONDS)
+            
+            if self.vel < self.setpoint:
+                if self.vel <= 0:
+                    self.vel += brake / rate
+                    continue
+
+                if self.vel > 0:
+                    self.vel += accel / rate
+                    continue
+
+            if self.vel > self.setpoint:
+                if self.vel <= 0:
+                    self.vel -= accel / rate
+                    continue
+
+                if self.vel > 0:
+                    self.vel -= brake / rate
+                    continue
     
     def stop(self):
         self.running = False
 
-    def loop(self):
-        # Value of offset - when the error is equal zero
-        offset = 0
-        
-        time_prev = brain.timer.time(SECONDS)
-        e_prev = 0
-
-        Kp = self.Kp
-        Ki = self.Ki
-        Kd = self.Kd
-
-        I = 0
-
-        while self.running:
-            sleep(1 / 60, SECONDS)
-
-            time = brain.timer.time(SECONDS)
-
-            # PID calculations
-            e = self.setpoint - self.get_val()
-                
-            P = Kp*e
-            I += Ki*e*(time - time_prev)
-            D = Kd*(e - e_prev)/(time - time_prev)
-
-            # calculate manipulated variable - MV 
-            MV = offset + P + I + D
-
-            # update stored data for next iteration
-            e_prev = e
-            time_prev = time
-            I *= 0.99
-
-            self.set_val(self.get_val() + MV)
 
 def elevator_loop() -> None:
     while True:
@@ -121,19 +117,17 @@ def elevator_loop() -> None:
         if (vision_sensor.take_snapshot(MY_SIG)):
             continue
 
-        if (vision_sensor.take_snapshot(ENEMY_SIG)):
-            save_state = lift_intake.is_spinning()
+        if (vision_sensor.take_snapshot(ENEMY_SIG) and lift_intake.is_spinning()):
+
+            # TODO: Adjust this value!
+            wait(400, MSEC)
             save_direction = lift_intake.direction()
             save_speed = lift_intake.velocity(PERCENT)
 
             lift_intake.stop()
-            wait(400, MSEC)
+            wait(300, MSEC)
+            lift_intake.spin(save_direction, save_speed, PERCENT)
             
-            if (save_state != lift_intake.is_spinning() or save_direction != lift_intake.direction()):
-                continue
-
-            if (save_state):
-                lift_intake.spin(save_direction, save_speed, PERCENT)
 
 def debug_loop() -> None:
     while True:
@@ -146,13 +140,25 @@ def debug_loop() -> None:
 
         wait(100, MSEC)
 
-def get_turn_velocity() -> float:
-    return (drivetrain.lm.velocity() - drivetrain.rm.velocity()) / 2
-
-set_turn_velocity_PID = PID_Motor(0.6, 0.2, 0.1, get_turn_velocity, drivetrain.set_turn_velocity)
-set_drive_velocity_PID = PID_Motor(0.6, 0.2, 0.1, drivetrain.velocity, drivetrain.set_drive_velocity)
-
 def _init() -> None:
+    global set_turn_velocity, set_drive_velocity
+
+    def _get_turn_velocity() -> float:
+        return (drivetrain.lm.velocity(PERCENT) - drivetrain.rm.velocity(PERCENT)) / 2
+
+    def _set_turn_velocity(v: float):
+        drivetrain.set_turn_velocity(v, PERCENT)
+
+    def _get_drive_velocity() -> float:
+        return drivetrain.velocity(PERCENT)
+
+    def _set_drive_velocity(v: float):
+        drivetrain.set_drive_velocity(v)
+
+    # TODO: adjust the accel and brake parameters for optimal performance.
+    set_turn_velocity = ControlledMotor(_get_turn_velocity, _set_turn_velocity, 100, 100, 60)
+    set_drive_velocity = ControlledMotor(_get_drive_velocity, _set_drive_velocity, 100, 100, 60)
+
     drivetrain.set_drive_velocity(0, PERCENT)
     drivetrain.set_turn_velocity(0, PERCENT)
     
@@ -162,8 +168,8 @@ def _init() -> None:
     lift_intake.set_stopping(BRAKE)
 
 def _controls() -> None:
-    controller.axis1.changed(set_drive_velocity_PID, (controller.axis1.position(),))
-    controller.axis3.changed(set_turn_velocity_PID, (controller.axis3.position(),))
+    controller.axis1.changed(set_drive_velocity, (controller.axis1.position(),))
+    controller.axis3.changed(set_turn_velocity, (controller.axis3.position(),))
     
     controller.buttonL2.pressed(lift_intake.spin, (FORWARD, 100, PERCENT))
     controller.buttonL2.released(lift_intake.spin, (FORWARD, 0, PERCENT))
@@ -181,8 +187,8 @@ def driver():
 
     _init()
 
-    set_turn_velocity_PID.start()
-    set_drive_velocity_PID.start()
+    set_turn_velocity.start()
+    set_drive_velocity.start()
 
     # Give power to the controller after PID is ready.
     _controls()
