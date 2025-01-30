@@ -3,7 +3,7 @@ from vex import *
 brain = Brain()
 controller = Controller()
 
-lift_intake = Motor(Ports.PORT7, GearSetting.RATIO_6_1, False)
+lift_intake = Motor(Ports.PORT7, GearSetting.RATIO_6_1, True)
 
 BLUE_SIG = Signature(1, -4645, -3641, -4143,4431, 9695, 7063,2.5, 0)
 RED_SIG = Signature(2, 7935, 9719, 8827,-1261, -289, -775,2.5, 0)
@@ -13,24 +13,30 @@ vision_sensor = Vision(Ports.PORT9, 50, BLUE_SIG, RED_SIG)
 stake_grab_left = DigitalOut(brain.three_wire_port.a)
 stake_grab_right = DigitalOut(brain.three_wire_port.b)
 
+motor3 = Motor(Ports.PORT3, GearSetting.RATIO_6_1, False)
+motor6 = Motor(Ports.PORT6, GearSetting.RATIO_6_1, True)
+
+motor3.set_stopping(COAST)
+motor6.set_stopping(COAST)
+
 drivetrain= DriveTrain(
                 MotorGroup(
                     Motor(Ports.PORT1, GearSetting.RATIO_6_1, False), 
-                    Motor(Ports.PORT2, GearSetting.RATIO_6_1, True), 
-                    Motor(Ports.PORT3, GearSetting.RATIO_6_1, False)
+                    Motor(Ports.PORT2, GearSetting.RATIO_6_1, False),
+                    Motor(Ports.PORT3, GearSetting.RATIO_6_1, True),
                 ), 
                     
                 MotorGroup(
                     Motor(Ports.PORT4, GearSetting.RATIO_6_1, True), 
-                    Motor(Ports.PORT5, GearSetting.RATIO_6_1, False), 
-                    Motor(Ports.PORT6, GearSetting.RATIO_6_1, True)
+                    Motor(Ports.PORT5, GearSetting.RATIO_6_1, True), 
+                    Motor(Ports.PORT6, GearSetting.RATIO_6_1, False),
                 ), 
                 
                 259.34, # wheel travel
                 310,    # track width
                 205,     # wheel base
                 MM,     # unit
-                600/360 # gear ratio (drivetrain rpm) / (motor rpm)
+                600/360 
             )
 
 MY_SIG = BLUE_SIG
@@ -41,53 +47,38 @@ def set_stake(state: bool) -> None:
     stake_grab_left.set(state)
     stake_grab_right.set(state)
 
+"""
 def elevator_loop() -> None:
     while True:
         sleep(1000 / 30, MSEC)
 
-        vision_sensor.take_snapshot(MY_SIG)
-
-
-        if (vision_sensor.take_snapshot(MY_SIG)):
+        objects = vision_sensor.take_snapshot(MY_SIG)
+        if objects and len(objects) > 0:
             continue
 
-        if (vision_sensor.take_snapshot(ENEMY_SIG) and lift_intake.is_spinning()):
+        positive = 0
+        negative = 0
+        for _ in range(50):
+            objects = vision_sensor.take_snapshot(ENEMY_SIG)
+            if objects and len(objects) > 0:
+                positive += 1
+            else:
+                negative += 1
+        
+        objects = vision_sensor.largest_object().width
+        brain.screen.set_cursor(1, 1)
+        brain.screen.print(objects[0].height)
+        if positive >= negative and objects[0].height > 40:
+            sleep(400, MSEC)
 
-            # TODO: Adjust this value!
-            wait(400, MSEC)
             save_direction = lift_intake.direction()
-            save_speed = lift_intake.velocity(PERCENT)
+            save_velocity = lift_intake.velocity()
 
             lift_intake.stop()
-            wait(300, MSEC)
-            lift_intake.spin(save_direction, save_speed, PERCENT)
+            sleep(200, MSEC)
 
-
-
-class RollingAverage:
-    def __init__(self, getter, setter, size, poll_frequency):
-        self.inputs = [0] * size
-        self.pos = 0
-        self.size = size
-        self.poll_frequency = poll_frequency
-        self.getter = getter
-        self.setter = setter
-
-        Thread(self.loop)
-    
-    def _add_element(self, n: float):
-        self.inputs[self.pos] = n
-        self.pos = (self.pos + 1) % self.size
-    
-    def _get_val(self):
-        return sum(self.inputs) / self.size
-
-    def loop(self):
-        while True:
-            wait(1 / self.poll_frequency, SECONDS)
-            self._add_element(self.getter())
-            self.setter(self._get_val(), PERCENT)
-
+            lift_intake.spin(save_direction, save_velocity, PERCENT)
+"""
 
 def _init() -> None:
 
@@ -100,11 +91,17 @@ def _init() -> None:
     drivetrain.set_stopping(COAST)
     lift_intake.set_stopping(BRAKE)
 
+measurements = [0.0] * 30
+measurements_index = 0
+
+grabbing_stake = False
+def toggle_stake():
+    global grabbing_stake
+    grabbing_stake = not grabbing_stake
+    set_stake(grabbing_stake)
+
+
 def _controls() -> None:
-
-    RollingAverage(controller.axis1.position, drivetrain.set_drive_velocity, 30, 60)
-
-    controller.axis3.changed(drivetrain.set_turn_velocity, (controller.axis3.position(),PERCENT))
     
     controller.buttonL2.pressed(lift_intake.spin, (FORWARD, 100, PERCENT))
     controller.buttonL2.released(lift_intake.spin, (FORWARD, 0, PERCENT))
@@ -113,19 +110,26 @@ def _controls() -> None:
 
     lift_intake.spin(FORWARD, 100, PERCENT)
 
-    GRABBING = True
-
-    controller.buttonR1.pressed(set_stake, (GRABBING,))
-    controller.buttonR2.pressed(set_stake, (not GRABBING,))
+    controller.buttonA.pressed(toggle_stake)
 
 def driver():
-    global set_turn_velocity, set_drive_velocity
+    lift_intake.stop()
     _init()
-
-    # Give power to the controller after PID is ready.
+    lift_intake.stop()
     _controls()
+    lift_intake.stop()
+    # Thread(elevator_loop) # 30 ups
+    lift_intake.stop()
 
-    Thread(elevator_loop) # 30 ups
+    drivetrain.drive(FORWARD)
+    while True:
+
+        accel_stick = controller.axis3.position()
+        turn_stick = controller.axis1.position()
+
+        drivetrain.lm.set_velocity(accel_stick - turn_stick, PERCENT)
+        drivetrain.rm.set_velocity(accel_stick + turn_stick, PERCENT)
+        drivetrain.drive(FORWARD)
 
 def auton():
     pass
