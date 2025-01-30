@@ -39,6 +39,7 @@ drivetrain= DriveTrain(
 
 # CONFIG AREA 
 MY_SIG = BLUE_SIG
+AUTON_STARTING_SIDE = RIGHT
 # END CONFIG AREA
 
 ENEMY_SIG = RED_SIG if MY_SIG == BLUE_SIG else BLUE_SIG
@@ -113,9 +114,8 @@ def do_drive_loop() -> None:
     accel_stick = control_accel(controller.axis3.position())
     turn_stick = control_turn(controller.axis1.position())
 
-    lm.set_velocity(accel_stick - turn_stick, PERCENT)
-    rm.set_velocity(accel_stick + turn_stick, PERCENT)
-    drivetrain.drive(FORWARD)
+    lm.spin(FORWARD, accel_stick - turn_stick, PERCENT)
+    rm.spin(FORWARD, accel_stick + turn_stick, PERCENT)
 
 
 def driver():
@@ -124,7 +124,61 @@ def driver():
         do_drive_loop()
         wait(1 / 60, SECONDS)
 
+
+def release_stake():
+    stake_grab_left.set(False)
+    stake_grab_right.set(False)
+
+def grab_stake():
+    stake_grab_left.set(True)
+    stake_grab_right.set(True)
+
+def auton_elevator_loop():
+    while True:
+        do_elevator_loop()
+        wait(1/60, SECONDS)
+
 def auton():
-    pass
+    release_stake()
+
+    # Wait for the piston to finish retracting.
+    wait(0.3, SECONDS)
+
+    # Drive backwards into a stake
+    drivetrain.drive_for(REVERSE, 32, INCHES, 65, PERCENT)
+
+    # Wait for the robot to stabilize
+    wait(0.5, SECONDS)
+
+    # Grab the stake
+    grab_stake()
+
+    # Wait for the piston to finish extending.
+    wait(0.2, SECONDS)
+
+    # Turn to grab the stake.
+    drivetrain.turn_for(AUTON_STARTING_SIDE, 45, DEGREES)
+
+    # Realign the stake after turning.
+    drivetrain.drive_for(FORWARD, 2, INCHES)
+
+    # Start the color sorting routine (remove if problematic)
+    Thread(auton_elevator_loop)
+
+    # Start the donut elevator and intake.
+    lift_intake.spin(FORWARD, 100, PERCENT)
+
+    # Wait to score.
+    wait(1, SECONDS)
+
+    # Goes in a direction depending on AUTON_STARTING_SIDE, picks up a donut that way.
+    drivetrain.drive_for(FORWARD, 26, INCHES, 40, PERCENT)
+
+    # Wait to score.
+    wait(2, SECONDS)
+
+    # Done.
+    drivetrain.stop()
+    lift_intake.stop()
     
 competition = Competition(driver, auton)
