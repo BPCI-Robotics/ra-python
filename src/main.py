@@ -36,6 +36,8 @@ drivetrain= DriveTrain(
                 MM,     # unit
                 600/360 
             )
+
+wall_stake_motor = Motor(Ports.PORT8, GearSetting.RATIO_36_1, False)
 # endregion
 
 # CONFIG AREA 
@@ -71,21 +73,23 @@ class RollingAverage:
 
         return ret
 
-doinking = False
-def toggle_stake():
-    global doinking
-    doinking = not doinking
-    doink_piston.set(doinking)
+_doinking = False
+def toggle_doink():
+    global _doinking
+    _doinking = not _doinking
+    doink_piston.set(_doinking)
 
-doinking = False
-def doink_doink():
-    global grabbing_stake
-    grabbing_stake = not grabbing_stake
-    stake_grab_piston.set(grabbing_stake)
+_grabbing_stake = False
+def toggle_stake():
+    global _grabbing_stake
+    _grabbing_stake = not _grabbing_stake
+    stake_grab_piston.set(_grabbing_stake)
 
 def init():
     drivetrain.set_drive_velocity(0, PERCENT)
     drivetrain.set_turn_velocity(0, PERCENT)
+
+    wall_stake_motor.set_position(0, DEGREES)
     
     lift_intake.set_velocity(0, PERCENT)
     drivetrain.drive(FORWARD)
@@ -97,40 +101,52 @@ def init():
     controller.buttonL2.released(lift_intake.spin, (FORWARD, 0, PERCENT))
     controller.buttonL1.pressed(lift_intake.spin, (REVERSE, 100, PERCENT))
     controller.buttonL1.released(lift_intake.spin, (REVERSE, 0, PERCENT))
+    
+    wall_stake_motor.set_stopping(COAST)
+    wall_stake_motor.set_velocity(50, PERCENT)
+
+    wall_stake_motor.spin(REVERSE, 100, PERCENT)
+    wait(1, SECONDS)
+    wall_stake_motor.set_position(0, DEGREES)
+    wall_stake_motor.stop()
+
+    controller.buttonX.pressed(wall_stake_motor.spin_to_position, (15, DEGREES))
+    controller.buttonA.pressed(wall_stake_motor.spin_to_position, (150, DEGREES))
+    controller.buttonA.released(wall_stake_motor.spin_to_position, (15, DEGREES))
+    controller.buttonY.pressed(wall_stake_motor.spin_to_position, (-15, DEGREES))
 
     controller.buttonR2.pressed(toggle_stake)
-    controller.buttonR1.pressed(doink_doink)
+    controller.buttonR1.pressed(toggle_doink)
 
 def do_elevator_loop() -> None:
-    
-    my_objects = vision_sensor.take_snapshot(MY_SIG)
-    enemy_objects = vision_sensor.take_snapshot(ENEMY_SIG)
+    while True:
+        my_objects = vision_sensor.take_snapshot(MY_SIG)
+        enemy_objects = vision_sensor.take_snapshot(ENEMY_SIG)
 
-    exists = lambda a: a and len(a) > 0
+        exists = lambda a: a and len(a) > 0
 
-    if (exists(my_objects)):
-        return
+        if (exists(my_objects)):
+            return
 
-    if not exists(enemy_objects):
-        return
-    
-    largest_object = vision_sensor.largest_object()
+        if not exists(enemy_objects):
+            return
+        
+        largest_object = vision_sensor.largest_object()
 
-    if (largest_object.width > 100 or largest_object.height > 100) and lift_intake.velocity(PERCENT) > 0:
+        if (largest_object.width > 100 or largest_object.height > 100) and lift_intake.velocity(PERCENT) > 0:
 
-        wait(100, MSEC)
+            wait(100, MSEC)
 
-        save_direction = lift_intake.direction()
-        save_speed = lift_intake.velocity(PERCENT)
-        lift_intake.stop()
-        doink_it()
+            save_direction = lift_intake.direction()
+            save_speed = lift_intake.velocity(PERCENT)
+            lift_intake.stop()
 
-        wait(300, MSEC)
+            wait(300, MSEC)
 
-        lift_intake.spin(save_direction, save_speed, PERCENT)
+            lift_intake.spin(save_direction, save_speed, PERCENT)
 
-control_accel = RollingAverage(size=8, anti_lag=True)
-control_turn = RollingAverage(size=15, anti_lag=False)
+control_accel = RollingAverage(size=2, anti_lag=True)
+control_turn = RollingAverage(size=4, anti_lag=False)
 
 def do_drive_loop() -> None:
     accel_stick = control_accel(controller.axis3.position())
@@ -142,17 +158,10 @@ def do_drive_loop() -> None:
 
 def driver():
     init()
+    Thread(do_elevator_loop)
     while True:
-        do_elevator_loop()
         do_drive_loop()
-        wait(1 / 60, SECONDS)
-
-
-def release_stake():
-    stake_grab_piston.set(False)
-
-def grab_stake():
-    stake_grab_piston.set(True)
+        wait(1 / 144, SECONDS)
 
 def auton_elevator_loop():
     while True:
@@ -160,6 +169,13 @@ def auton_elevator_loop():
         wait(1/60, SECONDS)
 
 def auton():
+    def release_stake():
+        stake_grab_piston.set(False)
+
+    def grab_stake():
+        stake_grab_piston.set(True)
+
+
     release_stake()
 
     # Wait for the piston to finish retracting.
@@ -169,7 +185,7 @@ def auton():
     drivetrain.drive_for(REVERSE, 32, INCHES, 65, PERCENT)
 
     # Wait for the robot to stabilize
-    wait(0.5, SECONDS)
+    wait(0.75, SECONDS)
 
     # Grab the stake
     grab_stake()
