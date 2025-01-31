@@ -12,7 +12,8 @@ RED_SIG = Signature(2, 7935, 9719, 8827,-1261, -289, -775,2.5, 0)
 vision_sensor = Vision(Ports.PORT9, 50, BLUE_SIG, RED_SIG)
 
 stake_grab_left = DigitalOut(brain.three_wire_port.a)
-stake_grab_right = DigitalOut(brain.three_wire_port.b)
+doink_doink = DigitalOut(brain.three_wire_port.b)
+
 
 lm= MotorGroup(
         Motor(Ports.PORT1, GearSetting.RATIO_6_1, False), 
@@ -46,7 +47,7 @@ ENEMY_SIG = RED_SIG if MY_SIG == BLUE_SIG else BLUE_SIG
 
 class RollingAverage:
     def __init__(self):
-        self.size = 30
+        self.size = 4
         self.data = [0.0] * self.size
         self.pos = 0
     
@@ -61,7 +62,12 @@ def toggle_stake():
     global grabbing_stake
     grabbing_stake = not grabbing_stake
     stake_grab_left.set(grabbing_stake)
-    stake_grab_right.set(grabbing_stake)
+    
+doinked = False
+def toggle_doink_doink():
+    global doinked
+    doinked = not doinked
+    doink_doink.set(doinked)
 
 def init():
     drivetrain.set_drive_velocity(0, PERCENT)
@@ -78,7 +84,8 @@ def init():
     controller.buttonL1.pressed(lift_intake.spin, (REVERSE, 100, PERCENT))
     controller.buttonL1.released(lift_intake.spin, (REVERSE, 0, PERCENT))
 
-    controller.buttonA.pressed(toggle_stake)
+    controller.buttonR2.pressed(toggle_stake)
+    controller.buttonR1.pressed(toggle_doink_doink)
 
 def do_elevator_loop() -> None:
     
@@ -119,19 +126,24 @@ def do_drive_loop() -> None:
 
 
 def driver():
+    init()
     while True:
-        do_elevator_loop()
+        #do_elevator_loop()
         do_drive_loop()
         wait(1 / 60, SECONDS)
 
 
 def release_stake():
     stake_grab_left.set(False)
-    stake_grab_right.set(False)
 
 def grab_stake():
     stake_grab_left.set(True)
-    stake_grab_right.set(True)
+
+def doinkDown():
+    doink_doink.set(False)
+
+def doinkUp():
+    doink_doink.set(True)
 
 def auton_elevator_loop():
     while True:
