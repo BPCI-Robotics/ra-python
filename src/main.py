@@ -66,13 +66,19 @@ class RollingAverage:
         ret_sign = -1 if ret < 0 else 1
         
         # Anti lag makes any value above 40 equivalent to 100.
-        if abs(ret) > 40 and self.anti_lag_enabled:
+        if abs(ret) > 50 and self.anti_lag_enabled:
             return ret_sign * 100
 
         return ret
 
-grabbing_stake = False
+doinking = False
 def toggle_stake():
+    global doinking
+    doinking = not doinking
+    doink_piston.set(doinking)
+
+doinking = False
+def doink_doink():
     global grabbing_stake
     grabbing_stake = not grabbing_stake
     stake_grab_piston.set(grabbing_stake)
@@ -93,7 +99,7 @@ def init():
     controller.buttonL1.released(lift_intake.spin, (REVERSE, 0, PERCENT))
 
     controller.buttonR2.pressed(toggle_stake)
-    controller.buttonR1.pressed(toggle_doink_doink)
+    controller.buttonR1.pressed(doink_doink)
 
 def do_elevator_loop() -> None:
     
@@ -147,11 +153,6 @@ def release_stake():
 
 def grab_stake():
     stake_grab_piston.set(True)
-
-def doink_it():
-    doink_piston.set(True)
-    wait(100, MSEC)
-    doink_piston.set(False)
 
 def auton_elevator_loop():
     while True:
