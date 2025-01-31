@@ -11,8 +11,8 @@ RED_SIG = Signature(2, 7935, 9719, 8827,-1261, -289, -775,2.5, 0)
 
 vision_sensor = Vision(Ports.PORT9, 50, BLUE_SIG, RED_SIG)
 
-stake_grab_left = DigitalOut(brain.three_wire_port.a)
-doink_doink = DigitalOut(brain.three_wire_port.b)
+stake_grab_piston = DigitalOut(brain.three_wire_port.a)
+doink_piston = DigitalOut(brain.three_wire_port.b)
 
 
 lm= MotorGroup(
@@ -46,28 +46,36 @@ AUTON_STARTING_SIDE = RIGHT
 ENEMY_SIG = RED_SIG if MY_SIG == BLUE_SIG else BLUE_SIG
 
 class RollingAverage:
-    def __init__(self):
-        self.size = 4
+    def __init__(self, size=8, anti_lag=False):
+        self.size = size
+        self.anti_lag_enabled = anti_lag
+
         self.data = [0.0] * self.size
         self.pos = 0
+
     
     def __call__(self, val: float) -> float:
-        self.data[self.pos] = val
-        self.pos = (self.pos + 1) % self.size
 
-        return sum(self.data) / self.size
+        # Add to the buffer, with a dead zone from -5 to 5
+        self.data[self.pos] = 0 if -5 <= val <= 5 else val
+
+        # Iterate to the next position
+        self.pos = (self.pos + 1) % self.size
+        
+        ret = sum(self.data) / self.size
+        ret_sign = -1 if ret < 0 else 1
+        
+        # Anti lag makes any value above 40 equivalent to 100.
+        if abs(ret) > 40 and self.anti_lag_enabled:
+            return ret_sign * 100
+
+        return ret
 
 grabbing_stake = False
 def toggle_stake():
     global grabbing_stake
     grabbing_stake = not grabbing_stake
-    stake_grab_left.set(grabbing_stake)
-    
-doinked = False
-def toggle_doink_doink():
-    global doinked
-    doinked = not doinked
-    doink_doink.set(doinked)
+    stake_grab_piston.set(grabbing_stake)
 
 def init():
     drivetrain.set_drive_velocity(0, PERCENT)
@@ -109,13 +117,14 @@ def do_elevator_loop() -> None:
         save_direction = lift_intake.direction()
         save_speed = lift_intake.velocity(PERCENT)
         lift_intake.stop()
+        doink_it()
 
         wait(300, MSEC)
 
         lift_intake.spin(save_direction, save_speed, PERCENT)
 
-control_accel = RollingAverage()
-control_turn = RollingAverage()
+control_accel = RollingAverage(size=8, anti_lag=True)
+control_turn = RollingAverage(size=15, anti_lag=False)
 
 def do_drive_loop() -> None:
     accel_stick = control_accel(controller.axis3.position())
@@ -128,22 +137,21 @@ def do_drive_loop() -> None:
 def driver():
     init()
     while True:
-        #do_elevator_loop()
+        do_elevator_loop()
         do_drive_loop()
         wait(1 / 60, SECONDS)
 
 
 def release_stake():
-    stake_grab_left.set(False)
+    stake_grab_piston.set(False)
 
 def grab_stake():
-    stake_grab_left.set(True)
+    stake_grab_piston.set(True)
 
-def doinkDown():
-    doink_doink.set(False)
-
-def doinkUp():
-    doink_doink.set(True)
+def doink_it():
+    doink_piston.set(True)
+    wait(100, MSEC)
+    doink_piston.set(False)
 
 def auton_elevator_loop():
     while True:
