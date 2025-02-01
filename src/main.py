@@ -48,7 +48,7 @@ AUTON_STARTING_SIDE = RIGHT
 ENEMY_SIG = RED_SIG if MY_SIG == BLUE_SIG else BLUE_SIG
 
 class RollingAverage:
-    def __init__(self, size=8, anti_lag=False):
+    def __init__(self, size, anti_lag):
         self.size = size
         self.anti_lag_enabled = anti_lag
 
@@ -146,7 +146,7 @@ def do_elevator_loop() -> None:
             lift_intake.spin(save_direction, save_speed, PERCENT)
 
 control_accel = RollingAverage(size=2, anti_lag=True)
-control_turn = RollingAverage(size=4, anti_lag=False)
+control_turn = RollingAverage(size=2, anti_lag=False)
 
 def do_drive_loop() -> None:
     accel_stick = control_accel(controller.axis3.position())
