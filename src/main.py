@@ -112,8 +112,7 @@ def init():
 
     controller.buttonX.pressed(wall_stake_motor.spin_to_position, (15, DEGREES))
     controller.buttonA.pressed(wall_stake_motor.spin_to_position, (150, DEGREES))
-    controller.buttonA.released(wall_stake_motor.spin_to_position, (15, DEGREES))
-    controller.buttonY.pressed(wall_stake_motor.spin_to_position, (-15, DEGREES))
+    controller.buttonY.pressed(wall_stake_motor.spin_to_position, (0, DEGREES))
 
     controller.buttonR2.pressed(toggle_stake)
     controller.buttonR1.pressed(toggle_doink)
