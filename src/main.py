@@ -88,8 +88,6 @@ def toggle_stake():
 def init():
     drivetrain.set_drive_velocity(0, PERCENT)
     drivetrain.set_turn_velocity(0, PERCENT)
-
-    wall_stake_motor.set_position(0, DEGREES)
     
     lift_intake.set_velocity(0, PERCENT)
     drivetrain.drive(FORWARD)
@@ -102,15 +100,15 @@ def init():
     controller.buttonL1.pressed(lift_intake.spin, (REVERSE, 100, PERCENT))
     controller.buttonL1.released(lift_intake.spin, (REVERSE, 0, PERCENT))
     
-    wall_stake_motor.set_stopping(COAST)
-    wall_stake_motor.set_velocity(50, PERCENT)
-
+    # Callibrate wall stake motor
+    wall_stake_motor.set_stopping(HOLD)
     wall_stake_motor.spin(REVERSE, 100, PERCENT)
     wait(1, SECONDS)
     wall_stake_motor.set_position(0, DEGREES)
     wall_stake_motor.stop()
+    wall_stake_motor.set_velocity(50, PERCENT)
 
-    controller.buttonX.pressed(wall_stake_motor.spin_to_position, (15, DEGREES))
+    controller.buttonX.pressed(wall_stake_motor.spin_to_position, (40, DEGREES))
     controller.buttonA.pressed(wall_stake_motor.spin_to_position, (150, DEGREES))
     controller.buttonY.pressed(wall_stake_motor.spin_to_position, (0, DEGREES))
 
