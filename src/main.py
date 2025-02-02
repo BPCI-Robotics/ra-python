@@ -67,7 +67,7 @@ class RollingAverage:
         ret = sum(self.data) / self.size
         ret_sign = -1 if ret < 0 else 1
         
-        # Anti lag makes any value above 40 equivalent to 100.
+        # Anti lag makes any value above 50 equivalent to 100.
         if abs(ret) > 50 and self.anti_lag_enabled:
             return ret_sign * 100
 
@@ -99,6 +99,9 @@ def init():
     controller.buttonL2.released(lift_intake.spin, (FORWARD, 0, PERCENT))
     controller.buttonL1.pressed(lift_intake.spin, (REVERSE, 100, PERCENT))
     controller.buttonL1.released(lift_intake.spin, (REVERSE, 0, PERCENT))
+
+    controller.buttonR2.pressed(toggle_stake)
+    controller.buttonR1.pressed(toggle_doink)
     
     # Callibrate wall stake motor
     wall_stake_motor.set_stopping(HOLD)
@@ -108,12 +111,18 @@ def init():
     wall_stake_motor.stop()
     wall_stake_motor.set_velocity(50, PERCENT)
 
-    controller.buttonX.pressed(wall_stake_motor.spin_to_position, (40, DEGREES))
-    controller.buttonA.pressed(wall_stake_motor.spin_to_position, (150, DEGREES))
+    # And finally bind the controller buttons to the motor.
+
+    # Inactive (no interaction with the donut).
     controller.buttonY.pressed(wall_stake_motor.spin_to_position, (0, DEGREES))
 
-    controller.buttonR2.pressed(toggle_stake)
-    controller.buttonR1.pressed(toggle_doink)
+    # Pick-up (ready to pick up the donut).
+    controller.buttonX.pressed(wall_stake_motor.spin_to_position, (40, DEGREES))
+
+    # Two transitions:
+    # Pick-up -> Storage (hold on to the donut).
+    # Storage -> Score (score the donut on the wall stake).
+    controller.buttonA.pressed(wall_stake_motor.spin_for, (FORWARD, 50, DEGREES))
 
 def do_elevator_loop() -> None:
     while True:
