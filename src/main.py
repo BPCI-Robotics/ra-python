@@ -11,8 +11,8 @@ RED_SIG = Signature(2, 7935, 9719, 8827,-1261, -289, -775,2.5, 0)
 
 vision_sensor = Vision(Ports.PORT9, 50, BLUE_SIG, RED_SIG)
 
-stake_grab_piston = DigitalOut(brain.three_wire_port.a)
-doink_piston = DigitalOut(brain.three_wire_port.b)
+stake_grab_left = DigitalOut(brain.three_wire_port.a)
+doink_doink = DigitalOut(brain.three_wire_port.b)
 
 
 lm= MotorGroup(
@@ -36,8 +36,6 @@ drivetrain= DriveTrain(
                 MM,     # unit
                 600/360 
             )
-
-wall_stake_motor = Motor(Ports.PORT8, GearSetting.RATIO_36_1, False)
 # endregion
 
 # CONFIG AREA 
@@ -48,42 +46,28 @@ AUTON_STARTING_SIDE = RIGHT
 ENEMY_SIG = RED_SIG if MY_SIG == BLUE_SIG else BLUE_SIG
 
 class RollingAverage:
-    def __init__(self, size, anti_lag):
-        self.size = size
-        self.anti_lag_enabled = anti_lag
-
+    def __init__(self):
+        self.size = 4
         self.data = [0.0] * self.size
         self.pos = 0
-
     
     def __call__(self, val: float) -> float:
-
-        # Add to the buffer, with a dead zone from -5 to 5
-        self.data[self.pos] = 0 if -5 <= val <= 5 else val
-
-        # Iterate to the next position
+        self.data[self.pos] = val
         self.pos = (self.pos + 1) % self.size
-        
-        ret = sum(self.data) / self.size
-        ret_sign = -1 if ret < 0 else 1
-        
-        # Anti lag makes any value above 50 equivalent to 100.
-        if abs(ret) > 50 and self.anti_lag_enabled:
-            return ret_sign * 100
 
-        return ret
+        return sum(self.data) / self.size
 
-_doinking = False
-def toggle_doink():
-    global _doinking
-    _doinking = not _doinking
-    doink_piston.set(_doinking)
-
-_grabbing_stake = False
+grabbing_stake = False
 def toggle_stake():
-    global _grabbing_stake
-    _grabbing_stake = not _grabbing_stake
-    stake_grab_piston.set(_grabbing_stake)
+    global grabbing_stake
+    grabbing_stake = not grabbing_stake
+    stake_grab_left.set(grabbing_stake)
+    
+doinked = False
+def toggle_doink_doink():
+    global doinked
+    doinked = not doinked
+    doink_doink.set(doinked)
 
 def init():
     drivetrain.set_drive_velocity(0, PERCENT)
@@ -101,58 +85,37 @@ def init():
     controller.buttonL1.released(lift_intake.spin, (REVERSE, 0, PERCENT))
 
     controller.buttonR2.pressed(toggle_stake)
-    controller.buttonR1.pressed(toggle_doink)
-    
-    # Callibrate wall stake motor
-    wall_stake_motor.set_stopping(HOLD)
-    wall_stake_motor.spin(REVERSE, 100, PERCENT)
-    wait(1, SECONDS)
-    wall_stake_motor.set_position(0, DEGREES)
-    wall_stake_motor.stop()
-    wall_stake_motor.set_velocity(50, PERCENT)
-
-    # And finally bind the controller buttons to the motor.
-
-    # Inactive (no interaction with the donut).
-    controller.buttonY.pressed(wall_stake_motor.spin_to_position, (0, DEGREES))
-
-    # Pick-up (ready to pick up the donut).
-    controller.buttonX.pressed(wall_stake_motor.spin_to_position, (40, DEGREES))
-
-    # Two transitions:
-    # Pick-up -> Storage (hold on to the donut).
-    # Storage -> Score (score the donut on the wall stake).
-    controller.buttonA.pressed(wall_stake_motor.spin_for, (FORWARD, 50, DEGREES))
+    controller.buttonR1.pressed(toggle_doink_doink)
 
 def do_elevator_loop() -> None:
-    while True:
-        my_objects = vision_sensor.take_snapshot(MY_SIG)
-        enemy_objects = vision_sensor.take_snapshot(ENEMY_SIG)
+    
+    my_objects = vision_sensor.take_snapshot(MY_SIG)
+    enemy_objects = vision_sensor.take_snapshot(ENEMY_SIG)
 
-        exists = lambda a: a and len(a) > 0
+    exists = lambda a: a and len(a) > 0
 
-        if (exists(my_objects)):
-            return
+    if (exists(my_objects)):
+        return
 
-        if not exists(enemy_objects):
-            return
-        
-        largest_object = vision_sensor.largest_object()
+    if not exists(enemy_objects):
+        return
+    
+    largest_object = vision_sensor.largest_object()
 
-        if (largest_object.width > 100 or largest_object.height > 100) and lift_intake.velocity(PERCENT) > 0:
+    if (largest_object.width > 100 or largest_object.height > 100) and lift_intake.velocity(PERCENT) > 0:
 
-            wait(100, MSEC)
+        wait(100, MSEC)
 
-            save_direction = lift_intake.direction()
-            save_speed = lift_intake.velocity(PERCENT)
-            lift_intake.stop()
+        save_direction = lift_intake.direction()
+        save_speed = lift_intake.velocity(PERCENT)
+        lift_intake.stop()
 
-            wait(300, MSEC)
+        wait(300, MSEC)
 
-            lift_intake.spin(save_direction, save_speed, PERCENT)
+        lift_intake.spin(save_direction, save_speed, PERCENT)
 
-control_accel = RollingAverage(size=2, anti_lag=True)
-control_turn = RollingAverage(size=2, anti_lag=False)
+control_accel = RollingAverage()
+control_turn = RollingAverage()
 
 def do_drive_loop() -> None:
     accel_stick = control_accel(controller.axis3.position())
@@ -164,10 +127,23 @@ def do_drive_loop() -> None:
 
 def driver():
     init()
-    Thread(do_elevator_loop)
     while True:
+        #do_elevator_loop()
         do_drive_loop()
-        wait(1 / 144, SECONDS)
+        wait(1 / 60, SECONDS)
+
+
+def release_stake():
+    stake_grab_left.set(False)
+
+def grab_stake():
+    stake_grab_left.set(True)
+
+def doinkDown():
+    doink_doink.set(False)
+
+def doinkUp():
+    doink_doink.set(True)
 
 def auton_elevator_loop():
     while True:
@@ -175,13 +151,6 @@ def auton_elevator_loop():
         wait(1/60, SECONDS)
 
 def auton():
-    def release_stake():
-        stake_grab_piston.set(False)
-
-    def grab_stake():
-        stake_grab_piston.set(True)
-
-
     release_stake()
 
     # Wait for the piston to finish retracting.
@@ -191,7 +160,7 @@ def auton():
     drivetrain.drive_for(REVERSE, 32, INCHES, 65, PERCENT)
 
     # Wait for the robot to stabilize
-    wait(0.75, SECONDS)
+    wait(0.5, SECONDS)
 
     # Grab the stake
     grab_stake()
