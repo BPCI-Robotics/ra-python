@@ -52,6 +52,13 @@ drivetrain= DriveTrain(
 #
 # (0, 240)                          (480, 240)
 
+def floor(x: float) -> int:
+    r = round(x)
+    if r > x:
+        return r - 1
+    else:
+        return r
+
 class Option:
     def __init__(self, name: str, color: Color, choices: list[Any]):
         self.name = name
@@ -60,22 +67,34 @@ class Option:
         self.index = 0
         self.length = len(choices)
 
-    def get(self) -> Any:
+    def value(self) -> Any:
         return self.choices[self.index]
     
-    def set(self) -> None:
+    def next(self) -> None:
         self.index = (self.index + 1) % self.length
 
 
 class SelectionMenu:
-
-    def add_option(self, name, color, default):
-        self.options.append(Option(name, color, default))
+    def add_option(self, name: str, color: Color, choices: list[Any]):
+        self.options.append(Option(name, color, choices))
         self.count += 1
     
     def __init__(self):
         self.count = 0
         self.options: list[Option] = []
+
+        brain.screen.pressed(self.on_brain_screen_press)
+    
+    def on_brain_screen_press(self):
+        x = brain.screen.x_position()
+        y = brain.screen.y_position()
+
+        if y < 240 - 30:
+            return
+        
+        self.options[floor(x / self.count)].next()
+
+        self.draw()
     
     def draw(self):
         brain.screen.clear_screen(Color.BLACK)
@@ -86,7 +105,7 @@ class SelectionMenu:
         for i, option in enumerate(self.options):
             brain.screen.set_pen_color(option.color)
             brain.screen.set_cursor(i + 1, 1)
-            brain.screen.print(option.name + ": " + option.get())
+            brain.screen.print(option.name + ": " + option.value())
         
         # Draw the buttons
         # |--10--|Button|--10--|Button|--10--|Button|--10--|
@@ -95,7 +114,7 @@ class SelectionMenu:
         canvas_height = 240
 
         rect_width = (canvas_width - 10 * (self.count + 1)) / self.count
-        rect_height = 20
+        rect_height = 30
 
         for i, option in enumerate(self.options):
             brain.screen.draw_rectangle(
@@ -104,13 +123,11 @@ class SelectionMenu:
                 rect_width,
                 rect_height,
                 option.color
-            )
-
-            
+            )  
 
 class RollingAverage:
-    def __init__(self):
-        self.size = 4
+    def __init__(self, size: int):
+        self.size = size
         self.data = [0.0] * self.size
         self.pos = 0
     
@@ -177,12 +194,9 @@ def do_elevator_loop() -> None:
 
         lift_intake.spin(save_direction, save_speed, PERCENT)
 
-control_accel = RollingAverage()
-control_turn = RollingAverage()
-
 def do_drive_loop() -> None:
-    accel_stick = control_accel(controller.axis3.position())
-    turn_stick = control_turn(controller.axis1.position())
+    accel_stick = controller.axis3.position()
+    turn_stick = controller.axis1.position()
 
     lm.spin(FORWARD, accel_stick - turn_stick, PERCENT)
     rm.spin(FORWARD, accel_stick + turn_stick, PERCENT)
