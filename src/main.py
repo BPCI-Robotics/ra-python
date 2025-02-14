@@ -1,19 +1,18 @@
 from vex import *
 
-# region parts declaration
-brain = Brain()
-controller = Controller()
-
-lift_intake = Motor(Ports.PORT7, GearSetting.RATIO_6_1, True)
-
 BLUE_SIG = Signature(1, -4645, -3641, -4143,4431, 9695, 7063,2.5, 0)
 RED_SIG = Signature(2, 7935, 9719, 8827,-1261, -289, -775,2.5, 0)
 
-vision_sensor = Vision(Ports.PORT9, 50, BLUE_SIG, RED_SIG)
+# CONFIG AREA 
+MY_SIG = BLUE_SIG
+AUTON_STARTING_SIDE = RIGHT
+# END CONFIG AREA
 
-stake_grab_left = DigitalOut(brain.three_wire_port.a)
-doink_doink = DigitalOut(brain.three_wire_port.b)
+ENEMY_SIG = RED_SIG if MY_SIG == BLUE_SIG else BLUE_SIG
 
+# region parts declaration
+brain = Brain()
+controller = Controller()
 
 lm= MotorGroup(
         Motor(Ports.PORT1, GearSetting.RATIO_6_1, False), 
@@ -27,6 +26,13 @@ rm= MotorGroup(
         Motor(Ports.PORT6, GearSetting.RATIO_6_1, False),
     )
 
+lift_intake = Motor(Ports.PORT7, GearSetting.RATIO_6_1, True)
+
+vision_sensor = Vision(Ports.PORT9, 50, BLUE_SIG, RED_SIG)
+
+stake_grabber = DigitalOut(brain.three_wire_port.a)
+doink_piston = DigitalOut(brain.three_wire_port.b)
+
 drivetrain= DriveTrain(
                 lm,
                 rm,
@@ -38,12 +44,69 @@ drivetrain= DriveTrain(
             )
 # endregion
 
-# CONFIG AREA 
-MY_SIG = BLUE_SIG
-AUTON_STARTING_SIDE = RIGHT
-# END CONFIG AREA
+# https://www.cs2n.org/u/mp/badge_pages/2228
+#
+# (0, 0)                            (480, 0)
+#
+#
+#
+# (0, 240)                          (480, 240)
 
-ENEMY_SIG = RED_SIG if MY_SIG == BLUE_SIG else BLUE_SIG
+class Option:
+    def __init__(self, name: str, color: Color, choices: list[Any]):
+        self.name = name
+        self.color = color
+        self.choices = choices
+        self.index = 0
+        self.length = len(choices)
+
+    def get(self) -> Any:
+        return self.choices[self.index]
+    
+    def set(self) -> None:
+        self.index = (self.index + 1) % self.length
+
+
+class SelectionMenu:
+
+    def add_option(self, name, color, default):
+        self.options.append(Option(name, color, default))
+        self.count += 1
+    
+    def __init__(self):
+        self.count = 0
+        self.options: list[Option] = []
+    
+    def draw(self):
+        brain.screen.clear_screen(Color.BLACK)
+
+        # Print the configurations
+        brain.screen.set_font(FontType.MONO15)
+
+        for i, option in enumerate(self.options):
+            brain.screen.set_pen_color(option.color)
+            brain.screen.set_cursor(i + 1, 1)
+            brain.screen.print(option.name + ": " + option.get())
+        
+        # Draw the buttons
+        # |--10--|Button|--10--|Button|--10--|Button|--10--|
+
+        canvas_width = 480
+        canvas_height = 240
+
+        rect_width = (canvas_width - 10 * (self.count + 1)) / self.count
+        rect_height = 20
+
+        for i, option in enumerate(self.options):
+            brain.screen.draw_rectangle(
+                10 + (10 + rect_width) * i, 
+                canvas_height - (rect_height + 5),
+                rect_width,
+                rect_height,
+                option.color
+            )
+
+            
 
 class RollingAverage:
     def __init__(self):
@@ -57,17 +120,17 @@ class RollingAverage:
 
         return sum(self.data) / self.size
 
-grabbing_stake = False
+_stake_state = False
 def toggle_stake():
-    global grabbing_stake
-    grabbing_stake = not grabbing_stake
-    stake_grab_left.set(grabbing_stake)
+    global _stake_state
+    _stake_state = not _stake_state
+    stake_grabber.set(_stake_state)
     
-doinked = False
-def toggle_doink_doink():
-    global doinked
-    doinked = not doinked
-    doink_doink.set(doinked)
+_doink_state = False
+def toggle_doink_piston():
+    global _doink_state
+    _doink_state = not _doink_state
+    doink_piston.set(_doink_state)
 
 def init():
     drivetrain.set_drive_velocity(0, PERCENT)
@@ -85,7 +148,7 @@ def init():
     controller.buttonL1.released(lift_intake.spin, (REVERSE, 0, PERCENT))
 
     controller.buttonR2.pressed(toggle_stake)
-    controller.buttonR1.pressed(toggle_doink_doink)
+    controller.buttonR1.pressed(toggle_doink_piston)
 
 def do_elevator_loop() -> None:
     
@@ -134,16 +197,16 @@ def driver():
 
 
 def release_stake():
-    stake_grab_left.set(False)
+    stake_grabber.set(False)
 
 def grab_stake():
-    stake_grab_left.set(True)
+    stake_grabber.set(True)
 
 def doinkDown():
-    doink_doink.set(False)
+    doink_piston.set(False)
 
 def doinkUp():
-    doink_doink.set(True)
+    doink_piston.set(True)
 
 def auton_elevator_loop():
     while True:
