@@ -26,10 +26,9 @@ rm= MotorGroup(
         Motor(Ports.PORT6, GearSetting.RATIO_6_1, True),
     )
 
-lift_intake = Motor(Ports.PORT7, GearSetting.RATIO_6_1, True)
-wall_stake_motor = Motor(Ports.PORT8, GearSetting.RATIO_36_1, False)
-
 vision_sensor = Vision(Ports.PORT9, 50, BLUE_SIG, RED_SIG)
+
+wall_stake_motor = Motor(Ports.PORT8, GearSetting.RATIO_6_1, True)
 
 stake_grabber = DigitalOut(brain.three_wire_port.a)
 doink_piston = DigitalOut(brain.three_wire_port.b)
@@ -74,7 +73,6 @@ class Option:
     
     def next(self) -> None:
         self.index = (self.index + 1) % self.length
-
 
 class SelectionMenu:
     def add_option(self, name: str, color: Color, choices: list[Any]):
@@ -146,6 +144,69 @@ class RollingAverage:
 
         return sum(self.data) / self.size
 
+class LiftIntake:
+    def __init__(self, enemy_sig):
+        self.motor = Motor(Ports.PORT7, GearSetting.RATIO_36_1, False)
+        self.running = False
+        self.sorting_enabled = True
+        self.enemy_sig = enemy_sig
+
+        self.motor.set_stopping(BRAKE)
+        Thread(self.sorting_loop)
+    
+    def spin(self, direction: DirectionType.DirectionType):
+        self.running = True
+        self.motor.spin(direction, 100, PERCENT)
+    
+    def stop(self):
+        self.running = False
+        self.motor.stop()
+
+    def sorting_loop(self):
+
+        while True:
+            sleep(20, MSEC)
+
+            # Exit: the lift intake isn't running or the user doesn't want to color sort.
+            if not self.running or not self.sorting_enabled:
+                continue
+
+            enemy_donut = vision_sensor.take_snapshot(self.enemy_sig, 1)[0]
+
+
+            # Exit: the donut is too far away (so it appears small)
+            if enemy_donut.height < 30 or enemy_donut.width < 70:
+                continue
+
+            # Hold on, I found something. Let's wait until the switch is hit.
+            timer = 0
+            akita_neru = False
+
+            while not donut_sensor.get_new_press():
+                delay(10)
+                timer += 10
+
+                # 1. Two seconds have passed and the donut did not make it to the top.
+                # 2. The lift intake is not spinning anymore. No need to continue waiting.
+                # 3. The driver has asked to disable color sorting. No need to continue waiting.
+                akita_neru = timer > 2000 or not lift_intake_running or not color_sort_enabled
+
+                if akita_neru:
+                    break
+
+            # Exit: the donut did not make it to the top.
+            if (akita_neru)
+                continue
+
+            save_direction = lift_intake.get_direction()
+
+            delay(100)
+            lift_intake.brake()
+            delay(250)
+
+            lift_intake.move_velocity(600 * (save_direction == FORWARD ? 1 : -1))
+
+
 _stake_state = False
 def toggle_stake():
     global _stake_state
@@ -162,90 +223,20 @@ def init():
     drivetrain.set_drive_velocity(0, PERCENT)
     drivetrain.set_turn_velocity(0, PERCENT)
     
-    lift_intake.set_velocity(0, PERCENT)
+    lift_intake.stop()
     drivetrain.drive(FORWARD)
 
     drivetrain.set_stopping(COAST)
-    lift_intake.set_stopping(BRAKE)
 
-    controller.buttonL2.pressed(lift_intake.spin, (FORWARD, 100, PERCENT))
-    controller.buttonL2.released(lift_intake.spin, (FORWARD, 0, PERCENT))
-    controller.buttonL1.pressed(lift_intake.spin, (REVERSE, 100, PERCENT))
-    controller.buttonL1.released(lift_intake.spin, (REVERSE, 0, PERCENT))
+    controller.buttonL2.pressed(lift_intake.spin, (FORWARD,))
+    controller.buttonL2.released(lift_intake.stop)
+    controller.buttonL1.pressed(lift_intake.spin, (REVERSE,))
+    controller.buttonL1.released(lift_intake.stop)
 
     controller.buttonR2.pressed(toggle_stake)
     controller.buttonR1.pressed(toggle_doink_piston)
 
-
-def elevator_loop(enemy_sig_id):
-
-    while True:
-        delay(20);
-
-        # Exit: the lift intake isn't running or the user doesn't want to color sort.
-        if not lift_intake_running or not color_sort_enabled:
-            continue
-
-        enemy_donut = vision_sensor.get_by_sig(0, enemy_sig_id)
-
-        # Exit: the donut is too far away (so it appears small)
-        if enemy_donut.height < 30 or enemy_donut.width < 70:
-            continue
-
-        # Hold on, I found something. Let's wait until the switch is hit.
-        timer = 0
-        akita_neru = False
-
-        while not donut_presence_sensor.get_new_press():
-            delay(10)
-            timer += 10
-
-            # 1. Two seconds have passed and the donut did not make it to the top.
-            # 2. The lift intake is not spinning anymore. No need to continue waiting.
-            # 3. The driver has asked to disable color sorting. No need to continue waiting.
-            akita_neru = timer > 2000 or not lift_intake_running or not color_sort_enabled
-
-            if akita_neru:
-                break
-
-        /* Exit: the donut did not make it to the top. */
-        if (akita_neru)
-            continue
-
-        save_direction = lift_intake.get_direction()
-
-        delay(100)
-        lift_intake.brake()
-        delay(250)
-
-        lift_intake.move_velocity(600 * (save_direction == FORWARD ? 1 : -1))
-
-def do_elevator_loop() -> None:
-    
-    my_objects = vision_sensor.take_snapshot(MY_SIG)
-    enemy_objects = vision_sensor.take_snapshot(ENEMY_SIG)
-
-    exists = lambda a: a and len(a) > 0
-
-    if (exists(my_objects)):
-        return
-
-    if not exists(enemy_objects):
-        return
-    
-    largest_object = vision_sensor.largest_object()
-
-    if (largest_object.width > 100 or largest_object.height > 100) and lift_intake.velocity(PERCENT) > 0:
-
-        wait(100, MSEC)
-
-        save_direction = lift_intake.direction()
-        save_speed = lift_intake.velocity(PERCENT)
-        lift_intake.stop()
-
-        wait(300, MSEC)
-
-        lift_intake.spin(save_direction, save_speed, PERCENT)
+lift_intake = LiftIntake(RED_SIG)
 
 def do_drive_loop() -> None:
     accel_stick = controller.axis3.position()
