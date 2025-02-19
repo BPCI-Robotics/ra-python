@@ -28,8 +28,6 @@ rm= MotorGroup(
 
 vision_sensor = Vision(Ports.PORT9, 50, BLUE_SIG, RED_SIG)
 
-wall_stake_motor = Motor(Ports.PORT8, GearSetting.RATIO_6_1, True)
-
 stake_grabber = DigitalOut(brain.three_wire_port.a)
 doink_piston = DigitalOut(brain.three_wire_port.b)
 donut_detector = DigitalOut(brain.three_wire_port.c)
@@ -53,6 +51,8 @@ drivetrain= DriveTrain(
 #
 # (0, 240)                          (480, 240)
 
+#which retard did this
+#you can use // for floor in python you h*ckin dumb bunny
 def floor(x: float) -> int:
     r = round(x)
     if r > x:
@@ -144,6 +144,24 @@ class RollingAverage:
 
         return sum(self.data) / self.size
 
+class WallStake:
+    def __init__(self):
+        self.motor = Motor(Ports.PORT8, GearSetting.RATIO_36_1, True)
+        self.absolute0Position = self.motor.position(DEGREES)
+
+    #any of the following functions may be changed to self.motor.spin_for(FORWARD, 70, DEGREES, 60, RPM)
+    def pickup(self):
+        self.motor.spin_to_position(70, DEGREES, 60, RPM)
+            
+    def hold(self):
+        self.motor.spin_to_position(140, DEGREES, 60, RPM)
+        
+    def score(self):
+        self.motor.spin_to_position(300, DEGREES, 70, RPM)
+
+    def reset(self):
+        self.motor.spin_to_position(self.absolute0Position, DEGREES, 70, RPM)
+
 class LiftIntake:
     def __init__(self, enemy_sig):
         self.motor = Motor(Ports.PORT7, GearSetting.RATIO_36_1, False)
@@ -201,10 +219,13 @@ class LiftIntake:
             save_direction = lift_intake.get_direction()
 
             delay(100)
-            lift_intake.brake()
+            lift_intake.spin_for(REVERSE, 200, DEGREES)
             delay(250)
 
             lift_intake.move_velocity(600 * (save_direction == FORWARD ? 1 : -1))
+
+
+
 
 
 _stake_state = False
@@ -232,11 +253,15 @@ def init():
     controller.buttonL2.released(lift_intake.stop)
     controller.buttonL1.pressed(lift_intake.spin, (REVERSE,))
     controller.buttonL1.released(lift_intake.stop)
-
+    controller.buttonX.pressed(wall_stake.pickup)
+    controller.buttonY.pressed(wall_stake.hold)
+    controller.buttonA.pressed(wall_stake.score)
+    controller.buttonB.pressed(wall_stake.reset)
     controller.buttonR2.pressed(toggle_stake)
     controller.buttonR1.pressed(toggle_doink_piston)
 
 lift_intake = LiftIntake(RED_SIG)
+wall_stake = WallStake()
 
 def do_drive_loop() -> None:
     accel_stick = controller.axis3.position()
@@ -261,7 +286,7 @@ def grab_stake():
     stake_grabber.set(True)
 
 def doinkDown():
-    doink_piston.set(False)
+    doink_piston.set(False) 
 
 def doinkUp():
     doink_piston.set(True)
@@ -272,7 +297,14 @@ def auton_elevator_loop():
         wait(1/60, SECONDS)
 
 def auton():
-    release_stake()
+    wait(0.5, SECONDS)
+
+    wall_stake.score()
+    drivetrain.drive_for(REVERSE, 20, INCHES, 80, PERCENT)
+
+    
+        
+    """release_stake()
 
     # Wait for the piston to finish retracting.
     wait(0.3, SECONDS)
@@ -315,3 +347,4 @@ def auton():
     lift_intake.stop()
     
 competition = Competition(driver, auton)
+"""
