@@ -1,56 +1,5 @@
 from vex import *
 
-BLUE_SIG = Signature(1, -4645, -3641, -4143,4431, 9695, 7063,2.5, 0)
-RED_SIG = Signature(2, 7935, 9719, 8827,-1261, -289, -775,2.5, 0)
-
-# CONFIG AREA 
-MY_SIG = BLUE_SIG
-AUTON_STARTING_SIDE = RIGHT
-# END CONFIG AREA
-
-ENEMY_SIG = RED_SIG if MY_SIG == BLUE_SIG else BLUE_SIG
-
-# region parts declaration
-brain = Brain()
-controller = Controller()
-
-lm= MotorGroup(
-        Motor(Ports.PORT1, GearSetting.RATIO_6_1, False), 
-        Motor(Ports.PORT2, GearSetting.RATIO_6_1, True),
-        Motor(Ports.PORT3, GearSetting.RATIO_6_1, False),
-    )
-
-rm= MotorGroup(
-        Motor(Ports.PORT4, GearSetting.RATIO_6_1, True), 
-        Motor(Ports.PORT5, GearSetting.RATIO_6_1, False), 
-        Motor(Ports.PORT6, GearSetting.RATIO_6_1, True),
-    )
-
-vision_sensor = Vision(Ports.PORT9, 50, BLUE_SIG, RED_SIG)
-
-stake_grabber = DigitalOut(brain.three_wire_port.a)
-doink_piston = DigitalOut(brain.three_wire_port.b)
-donut_detector = Limit(brain.three_wire_port.c)
-
-drivetrain= DriveTrain(
-                lm,
-                rm,
-                259.34, # wheel travel
-                310,    # track width
-                205,     # wheel base
-                MM,     # unit
-                600/360 
-            )
-# endregion
-
-# https://www.cs2n.org/u/mp/badge_pages/2228
-#
-# (0, 0)                            (480, 0)
-#
-#
-#
-# (0, 240)                          (480, 240)
-
 class _Option:
     def __init__(self, name: str, color: Color | Color.DefinedColor, choices: list[Any]):
         self.name = name
@@ -259,7 +208,6 @@ class PIDMotor:
 
             self.set_val(self.get_val() + MV)
 
-
 class RollingAverage:
     def __init__(self, size: int):
         self.size = size
@@ -290,19 +238,19 @@ class WallStake:
     def reset(self):
         self.motor.spin_to_position(self.absolute0Position, DEGREES, 70, RPM)
 
-
-def released_callback():
-    return 
 class LiftIntake:
-    def __init__(self, enemy_sig):
-        self.motor = Motor(Ports.PORT7, GearSetting.RATIO_36_1, False)
+    def __init__(self, motor: Motor):
+        self.motor = motor
         self.running = False
         self.sorting_enabled = True
-        self.enemy_sig = enemy_sig
+        self.enemy_sig = RED_SIG
 
         self.motor.set_stopping(BRAKE)
         Thread(self.sorting_loop)
     
+    def set_enemy_sig(self, sig: Signature):
+        self.enemy_sig = sig
+
     def spin(self, direction: DirectionType.DirectionType):
         self.running = True
         self.motor.spin(direction, 100, PERCENT)
@@ -332,7 +280,6 @@ class LiftIntake:
 
             enemy_donut = vision_sensor.take_snapshot(self.enemy_sig, 1)[0]
 
-
             # Exit: the donut is too far away (so it appears small)
             if enemy_donut.height < 30 or enemy_donut.width < 70:
                 continue
@@ -341,7 +288,7 @@ class LiftIntake:
             timer = 0
             akita_neru = False
 
-            while  donut_detector.released(released_callback):
+            while not donut_detector.pressing():
                 wait(10)
                 timer += 10
 
@@ -364,6 +311,43 @@ class LiftIntake:
             wait(250)
 
             lift_intake.move_velocity(600 * (1 if save_direction == REVERSE else -1))
+
+BLUE_SIG = Signature(1, -4645, -3641, -4143,4431, 9695, 7063, 2.5, 0)
+RED_SIG = Signature(2, 7935, 9719, 8827,-1261, -289, -775, 2.5, 0)
+
+brain = Brain()
+controller = Controller()
+
+lm= MotorGroup(
+        Motor(Ports.PORT1, GearSetting.RATIO_6_1, False), 
+        Motor(Ports.PORT2, GearSetting.RATIO_6_1, True),
+        Motor(Ports.PORT3, GearSetting.RATIO_6_1, False),
+    )
+
+rm= MotorGroup(
+        Motor(Ports.PORT4, GearSetting.RATIO_6_1, True), 
+        Motor(Ports.PORT5, GearSetting.RATIO_6_1, False), 
+        Motor(Ports.PORT6, GearSetting.RATIO_6_1, True),
+    )
+
+vision_sensor = Vision(Ports.PORT9, 50, BLUE_SIG, RED_SIG)
+
+stake_grabber = DigitalOut(brain.three_wire_port.a)
+doink_piston = DigitalOut(brain.three_wire_port.b)
+donut_detector = Limit(brain.three_wire_port.c)
+
+drivetrain= DriveTrain(
+                lm,
+                rm,
+                259.34, # wheel travel
+                310,    # track width
+                205,     # wheel base
+                MM,     # unit
+                600/360 
+            )
+
+lift_intake = LiftIntake(Motor(Ports.PORT7, GearSetting.RATIO_6_1, True))
+wall_stake = WallStake()
 
 _stake_state = False
 def toggle_stake():
@@ -396,9 +380,6 @@ def init():
     controller.buttonB.pressed(wall_stake.reset)
     controller.buttonR2.pressed(toggle_stake)
     controller.buttonR1.pressed(toggle_doink_piston)
-
-lift_intake = LiftIntake(RED_SIG)
-wall_stake = WallStake()
 
 def do_drive_loop() -> None:
     accel_stick = controller.axis3.position()
@@ -488,9 +469,23 @@ def auton():
     # Done.
     drivetrain.stop()
     lift_intake.stop()
-    
-competition = Competition(driver, auton)
 """
 
+# Implementation here!
 
-        
+def process_options_callback(data: dict[str, Any]):
+    pass
+
+def main():
+    menu = SelectionMenu()
+
+    menu.add_option("Team color", Color.RED, ["Red", "Blue"])
+    menu.add_option("Auton direction", Color.BLUE, ["Left", "Right"])
+    menu.add_option("Auton type", Color.YELLOW, ["Match", "Skills"])
+
+    menu.on_enter(process_options_callback)
+
+if __name__ == "__main__":
+    main()
+
+competition = Competition(driver, auton)     
