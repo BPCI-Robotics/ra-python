@@ -1,30 +1,29 @@
 from vex import *
 
-class _Option:
-    def __init__(self, name: str, color: Color | Color.DefinedColor, choices: list[Any]):
-        self.name = name
-        self.color = color
-        self.choices = choices
-        self.index = 0
-        self.count = len(choices)
-
-    def value(self) -> Any:
-        return self.choices[self.index]
-    
-    def next(self) -> None:
-        self.index = (self.index + 1) % self.count
-    
-    def prev(self) -> None:
-        if self.index == 0:
-            self.index = self.count - 1
-        else:
-            self.index -= 1
-
 class SelectionMenu:
+    class _Option:
+        def __init__(self, name: str, color: Color | Color.DefinedColor, choices: list[Any]):
+            self.name = name
+            self.color = color
+            self.choices = choices
+            self.index = 0
+            self.count = len(choices)
+
+        def value(self) -> Any:
+            return self.choices[self.index]
+        
+        def next(self) -> None:
+            self.index = (self.index + 1) % self.count
+        
+        def prev(self) -> None:
+            if self.index == 0:
+                self.index = self.count - 1
+            else:
+                self.index -= 1
     
     def __init__(self):
         self.count = 0
-        self.options: list[_Option] = []
+        self.options: list[SelectionMenu._Option] = []
 
         self.select = 0
 
@@ -78,7 +77,7 @@ class SelectionMenu:
         if self.disabled:
             return
         
-        self.options.insert(self.count - 1, _Option(name, color, choices))
+        self.options.insert(self.count - 1, SelectionMenu._Option(name, color, choices))
         self.count += 1
 
         self.draw()
@@ -146,23 +145,23 @@ class SelectionMenu:
             )
             i += 1
 
-class PIDMotor:
-     def __init__(self, P: float, I: float, D: float, getter: Callable[[], float], setter: Callable[[float], None]):
-        self.Kp = P
-        self.Ki = I
-        self.Kd = D
+class _PID_Basic:
+    def __init__(self, PID: tuple[float, float, float], setter: Callable[[float], None], getter: Callable[[], float]):
+        self.Kp = PID[0]
+        self.Ki = PID[1]
+        self.Kd = PID[2]
 
-        self.get_val = getter
         self.set_val = setter
+        self.get_val = getter
 
         self.setpoint = 0
 
         self.running = False
 
-     def start(self):
+    def start(self):
         self.running = True  
 
-     def __call__(self, setpoint: float, block = False):
+    def __call__(self, setpoint: float, block = False):
         if (not self.running):
             self.start()
         
@@ -173,9 +172,7 @@ class PIDMotor:
             while abs(self.setpoint - self.get_val()) > 1:
                 sleep(1 / 30, SECONDS)
 
-     def loop(self):
-        # Value of offset - when the error is equal zero
-        offset = 0
+    def loop(self):
         time_prev = brain.timer.time(SECONDS)
         e_prev = 0
 
@@ -195,16 +192,10 @@ class PIDMotor:
             I += Ki*e*(time - time_prev)
             D = Kd*(e - e_prev)/(time - time_prev)
 
+            MV = P + I + D
 
-            # calculate manipulated variable - MV 
-            MV = offset + P + I + D
-            
-
-            # update stored data for next iteration
             e_prev = e
             time_prev = time
-            I *= 0.99
-
 
             self.set_val(self.get_val() + MV)
 
@@ -274,7 +265,12 @@ class LiftIntake:
             if not self.running or not self.sorting_enabled:
                 continue
 
-            enemy_donut = self.vision.take_snapshot(self.enemy_sig, 1)[0]
+            enemy_donut = self.vision.take_snapshot(self.enemy_sig, 1)
+
+            if enemy_donut:
+                enemy_donut = enemy_donut[0]
+            else:
+                continue
 
             # Exit: the donut is too far away (so it appears small)
             if enemy_donut.height < 30 or enemy_donut.width < 70:
@@ -303,7 +299,8 @@ class LiftIntake:
             save_direction = lift_intake._get_direction()
 
             wait(100)
-            lift_intake.stop()
+            lift_intake.motor.spin_for(REVERSE, 180, DEGREES, 70, PERCENT, True)
+            print("Gooned!")
             wait(250)
 
             lift_intake.spin(save_direction)
@@ -410,7 +407,13 @@ def auton():
     drivetrain.drive_for(FORWARD, 85, INCHES, 90, PERCENT)
 
 def process_options_callback(data: dict[str, Any]):
-    pass
+    if data["Team color"] == "Red":
+        lift_intake.set_enemy_sig(BLUE_SIG)
+    else:
+        lift_intake.set_enemy_sig(RED_SIG)
+
+    Competition(driver, auton) 
+    driver()
 
 def main():
     menu = SelectionMenu()
@@ -422,6 +425,4 @@ def main():
     menu.on_enter(process_options_callback)
 
 if __name__ == "__main__":
-    main()
-
-competition = Competition(driver, auton)     
+    main()    
