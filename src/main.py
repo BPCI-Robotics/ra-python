@@ -61,43 +61,107 @@ def floor(x: float) -> int:
     else:
         return r
 
-class Option:
-    def __init__(self, name: str, color: Color, choices: list[Any]):
+class _Option:
+    def __init__(self, name: str, color: Color | Color.DefinedColor, choices: list[Any]):
         self.name = name
         self.color = color
         self.choices = choices
         self.index = 0
-        self.length = len(choices)
+        self.count = len(choices)
 
     def value(self) -> Any:
         return self.choices[self.index]
     
     def next(self) -> None:
-        self.index = (self.index + 1) % self.length
+        self.index = (self.index + 1) % self.count
+    
+    def prev(self) -> None:
+        if self.index == 0:
+            self.index = self.count - 1
+        else:
+            self.index -= 1
 
 class SelectionMenu:
-    def add_option(self, name: str, color: Color, choices: list[Any]):
-        self.options.append(Option(name, color, choices))
-        self.count += 1
     
     def __init__(self):
         self.count = 0
-        self.options: list[Option] = []
+        self.options: list[_Option] = []
 
-        brain.screen.pressed(self.on_brain_screen_press)
+        self.select = 0
+
+        self.disabled = False
+        self.enter_callbacks: list[Callable[[dict[str, Any]], None]] = []
+
+        brain.screen.pressed(self._on_brain_screen_press)
+
+        controller.buttonLeft.pressed(self._on_arrow_event, ('L',))
+        controller.buttonRight.pressed(self._on_arrow_event, ('R',))
+        controller.buttonUp.pressed(self._on_arrow_event, ('U',))
+        controller.buttonDown.pressed(self._on_arrow_event, ('D',))
+
+        self.add_option("Enter", Color.WHITE, ["", "Are you sure?", "ENTERED"])
     
-    def on_brain_screen_press(self):
-        x = brain.screen.x_position()
-        y = brain.screen.y_position()
+    def on_enter(self, callback: Callable[[dict[str, Any]], None]):
+        self.enter_callbacks.append(callback)
 
-        if y < 240 - 30:
+    def _on_arrow_event(self, event):
+        if self.disabled:
             return
         
-        self.options[floor(x / self.count)].next()
+        if event == 'L':
+            self.options[self.select].prev()
+        
+        if event == 'R':
+            self.options[self.select].next()
+        
+        if event == 'U':
+            if self.select == 0:
+                self.select = self.count - 1
+            else:
+                self.select -= 1
+          
+        if event == 'D':
+            self.select = (self.select + 1) % self.count
+        
+        if self.options[self.count - 1].value() == "ENTERED":
+            for callback in self.enter_callbacks:
+                callback(self._get_all())
+            self.draw()
+            self.disabled = True
+            return
+        
+        if self.select != self.count - 1 and self.options[self.count - 1].index != 0:
+            self.options[self.count - 1].index = 0
+
+        self.draw()
+
+    def add_option(self, name: str, color: Color | Color.DefinedColor, choices: list[Any]):
+        if self.disabled:
+            return
+        
+        self.options.insert(self.count - 1, _Option(name, color, choices))
+        self.count += 1
 
         self.draw()
     
-    def get_all(self):
+    def _on_brain_screen_press(self):
+        if self.disabled:
+            return
+        
+        x = brain.screen.x_position()
+        y = brain.screen.y_position()
+
+        if y < 240 - 100:
+            return
+        
+        self.options[x * self.count // 480].next()
+
+        self.draw()
+    
+    def _get_all(self) -> dict[str, Any]:
+        if self.disabled:
+            return {}
+        
         d = {}
         for option in self.options:
             d[option.name] = option.value()
@@ -105,15 +169,22 @@ class SelectionMenu:
         return d
 
     def draw(self):
+        if self.disabled:
+            return
+        
         brain.screen.clear_screen(Color.BLACK)
 
         # Print the configurations
-        brain.screen.set_font(FontType.MONO15)
+        brain.screen.set_font(FontType.MONO20)
 
-        for i, option in enumerate(self.options):
+        i = 0
+        for option in self.options:
             brain.screen.set_pen_color(option.color)
             brain.screen.set_cursor(i + 1, 1)
-            brain.screen.print(option.name + ": " + option.value())
+            select_marker = ">> " if self.select == i else "   "
+            brain.screen.print(select_marker + option.name + ": " + str(option.value()))
+
+            i += 1
         
         # Draw the buttons
         # |--10--|Button|--10--|Button|--10--|Button|--10--|
@@ -122,16 +193,19 @@ class SelectionMenu:
         canvas_height = 240
 
         rect_width = (canvas_width - 10 * (self.count + 1)) / self.count
-        rect_height = 30
+        rect_height = 70
 
-        for i, option in enumerate(self.options):
+        i = 0
+        for option in self.options:
+            brain.screen.set_pen_color(option.color)
             brain.screen.draw_rectangle(
                 10 + (10 + rect_width) * i, 
                 canvas_height - (rect_height + 5),
                 rect_width,
                 rect_height,
                 option.color
-            )  
+            )
+            i += 1
 
 class PIDMotor:
      def __init__(self, P: float, I: float, D: float, getter: Callable[[], float], setter: Callable[[float], None]):
