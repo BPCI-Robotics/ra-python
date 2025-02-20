@@ -30,7 +30,7 @@ vision_sensor = Vision(Ports.PORT9, 50, BLUE_SIG, RED_SIG)
 
 stake_grabber = DigitalOut(brain.three_wire_port.a)
 doink_piston = DigitalOut(brain.three_wire_port.b)
-donut_detector = DigitalOut(brain.three_wire_port.c)
+donut_detector = Limit(brain.three_wire_port.c)
 
 drivetrain= DriveTrain(
                 lm,
@@ -50,6 +50,7 @@ drivetrain= DriveTrain(
 #
 #
 # (0, 240)                          (480, 240)
+
 
 #which retard did this
 #you can use // for floor in python you h*ckin dumb bunny
@@ -132,6 +133,69 @@ class SelectionMenu:
                 option.color
             )  
 
+class PIDMotor:
+     def __init__(self, P: float, I: float, D: float, getter: Callable[[], float], setter: Callable[[float], None]):
+        self.Kp = P
+        self.Ki = I
+        self.Kd = D
+
+        self.get_val = getter
+        self.set_val = setter
+
+        self.setpoint = 0
+
+        self.running = False
+
+     def start(self):
+        self.running = True  
+
+     def __call__(self, setpoint: float, block = False):
+        if (not self.running):
+            self.start()
+        
+        self.setpoint = setpoint
+        t = brain.timer.time(SECONDS)
+        # print("Waiting for velocity to be", setpoint)
+        if block:
+            while abs(self.setpoint - self.get_val()) > 1:
+                sleep(1 / 30, SECONDS)
+
+     def loop(self):
+        # Value of offset - when the error is equal zero
+        offset = 0
+        time_prev = brain.timer.time(SECONDS)
+        e_prev = 0
+
+        Kp = self.Kp
+        Ki = self.Ki
+        Kd = self.Kd
+        I = 0
+
+        while self.running:
+            sleep(1 / 60, SECONDS)
+
+            time = brain.timer.time(SECONDS)
+            # PID calculations
+            e = self.setpoint - self.get_val()
+
+            P = Kp*e
+            I += Ki*e*(time - time_prev)
+            D = Kd*(e - e_prev)/(time - time_prev)
+
+
+            # calculate manipulated variable - MV 
+            MV = offset + P + I + D
+            
+
+            # update stored data for next iteration
+            e_prev = e
+            time_prev = time
+            I *= 0.99
+
+
+            self.set_val(self.get_val() + MV)
+
+
 class RollingAverage:
     def __init__(self, size: int):
         self.size = size
@@ -162,6 +226,9 @@ class WallStake:
     def reset(self):
         self.motor.spin_to_position(self.absolute0Position, DEGREES, 70, RPM)
 
+
+def released_callback():
+    return 
 class LiftIntake:
     def __init__(self, enemy_sig):
         self.motor = Motor(Ports.PORT7, GearSetting.RATIO_36_1, False)
@@ -175,7 +242,17 @@ class LiftIntake:
     def spin(self, direction: DirectionType.DirectionType):
         self.running = True
         self.motor.spin(direction, 100, PERCENT)
+
+    def spin_for(self, direction: DirectionType.DirectionType, rpm, encoder_units):
+        self.running = True
+        self.motor.spin_for(direction, rpm, encoder_units)
     
+    def get_direction(self):
+        return self.motor.direction()
+    
+    def move_velocity(self, speed):
+        self.motor.set_velocity(speed)
+
     def stop(self):
         self.running = False
         self.motor.stop()
@@ -200,33 +277,29 @@ class LiftIntake:
             timer = 0
             akita_neru = False
 
-            while not donut_sensor.get_new_press():
-                delay(10)
+            while  donut_detector.released(released_callback):
+                wait(10)
                 timer += 10
 
                 # 1. Two seconds have passed and the donut did not make it to the top.
                 # 2. The lift intake is not spinning anymore. No need to continue waiting.
                 # 3. The driver has asked to disable color sorting. No need to continue waiting.
-                akita_neru = timer > 2000 or not lift_intake_running or not color_sort_enabled
+                akita_neru = timer > 2000 or not self.running or not self.sorting_enabled
 
                 if akita_neru:
                     break
 
             # Exit: the donut did not make it to the top.
-            if (akita_neru)
+            if (akita_neru):
                 continue
 
             save_direction = lift_intake.get_direction()
 
-            delay(100)
+            wait(100)
             lift_intake.spin_for(REVERSE, 200, DEGREES)
-            delay(250)
+            wait(250)
 
-            lift_intake.move_velocity(600 * (save_direction == FORWARD ? 1 : -1))
-
-
-
-
+            lift_intake.move_velocity(600 * (1 if save_direction == REVERSE else -1))
 
 _stake_state = False
 def toggle_stake():
@@ -274,7 +347,7 @@ def do_drive_loop() -> None:
 def driver():
     init()
     while True:
-        do_elevator_loop()
+        lift_intake.sorting_loop()
         do_drive_loop()
         wait(1 / 60, SECONDS)
 
@@ -293,7 +366,7 @@ def doinkUp():
 
 def auton_elevator_loop():
     while True:
-        do_elevator_loop()
+        lift_intake.sorting_loop()
         wait(1/60, SECONDS)
 
 def auton():
@@ -302,7 +375,13 @@ def auton():
     wall_stake.score()
     drivetrain.drive_for(REVERSE, 20, INCHES, 80, PERCENT)
 
+    drivetrain.turn_for(LEFT, 90, DEGREES, 85, wait=True)
+
+    auton_elevator_loop()
+    drivetrain.drive_for(FORWARD, 85, INCHES, 90, PERCENT)
     
+    
+    #idk i left out the rest of the auton
         
     """release_stake()
 
@@ -348,3 +427,6 @@ def auton():
     
 competition = Competition(driver, auton)
 """
+
+
+        
