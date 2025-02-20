@@ -239,14 +239,17 @@ class WallStake:
         self.motor.spin_to_position(self.absolute0Position, DEGREES, 70, RPM)
 
 class LiftIntake:
-    def __init__(self, motor: Motor):
+    def __init__(self, motor: Motor, vision: Vision, limit_switch: Limit):
         self.motor = motor
+        self.vision = vision
+        self.limit_switch = limit_switch
+
         self.running = False
         self.sorting_enabled = True
         self.enemy_sig = RED_SIG
 
         self.motor.set_stopping(BRAKE)
-        Thread(self.sorting_loop)
+        Thread(self._sorting_loop)
     
     def set_enemy_sig(self, sig: Signature):
         self.enemy_sig = sig
@@ -254,22 +257,15 @@ class LiftIntake:
     def spin(self, direction: DirectionType.DirectionType):
         self.running = True
         self.motor.spin(direction, 100, PERCENT)
-
-    def spin_for(self, direction: DirectionType.DirectionType, rpm, encoder_units):
-        self.running = True
-        self.motor.spin_for(direction, rpm, encoder_units)
     
-    def get_direction(self):
+    def _get_direction(self):
         return self.motor.direction()
-    
-    def move_velocity(self, speed):
-        self.motor.set_velocity(speed)
 
     def stop(self):
         self.running = False
         self.motor.stop()
 
-    def sorting_loop(self):
+    def _sorting_loop(self):
 
         while True:
             sleep(20, MSEC)
@@ -278,7 +274,7 @@ class LiftIntake:
             if not self.running or not self.sorting_enabled:
                 continue
 
-            enemy_donut = vision_sensor.take_snapshot(self.enemy_sig, 1)[0]
+            enemy_donut = self.vision.take_snapshot(self.enemy_sig, 1)[0]
 
             # Exit: the donut is too far away (so it appears small)
             if enemy_donut.height < 30 or enemy_donut.width < 70:
@@ -288,7 +284,7 @@ class LiftIntake:
             timer = 0
             akita_neru = False
 
-            while not donut_detector.pressing():
+            while not self.limit_switch.pressing():
                 wait(10)
                 timer += 10
 
@@ -304,13 +300,13 @@ class LiftIntake:
             if (akita_neru):
                 continue
 
-            save_direction = lift_intake.get_direction()
+            save_direction = lift_intake._get_direction()
 
             wait(100)
-            lift_intake.spin_for(REVERSE, 200, DEGREES)
+            lift_intake.stop()
             wait(250)
 
-            lift_intake.move_velocity(600 * (1 if save_direction == REVERSE else -1))
+            lift_intake.spin(save_direction)
 
 BLUE_SIG = Signature(1, -4645, -3641, -4143,4431, 9695, 7063, 2.5, 0)
 RED_SIG = Signature(2, 7935, 9719, 8827,-1261, -289, -775, 2.5, 0)
@@ -330,11 +326,8 @@ rm= MotorGroup(
         Motor(Ports.PORT6, GearSetting.RATIO_6_1, True),
     )
 
-vision_sensor = Vision(Ports.PORT9, 50, BLUE_SIG, RED_SIG)
-
 stake_grabber = DigitalOut(brain.three_wire_port.a)
 doink_piston = DigitalOut(brain.three_wire_port.b)
-donut_detector = Limit(brain.three_wire_port.c)
 
 drivetrain= DriveTrain(
                 lm,
@@ -346,7 +339,12 @@ drivetrain= DriveTrain(
                 600/360 
             )
 
-lift_intake = LiftIntake(Motor(Ports.PORT7, GearSetting.RATIO_6_1, True))
+lift_intake = LiftIntake(
+    Motor(Ports.PORT7, GearSetting.RATIO_6_1, True), 
+    Vision(Ports.PORT9, 50, BLUE_SIG, RED_SIG), 
+    Limit(brain.three_wire_port.c)
+)
+
 wall_stake = WallStake()
 
 _stake_state = False
@@ -374,10 +372,12 @@ def init():
     controller.buttonL2.released(lift_intake.stop)
     controller.buttonL1.pressed(lift_intake.spin, (REVERSE,))
     controller.buttonL1.released(lift_intake.stop)
+
     controller.buttonX.pressed(wall_stake.pickup)
     controller.buttonY.pressed(wall_stake.hold)
     controller.buttonA.pressed(wall_stake.score)
     controller.buttonB.pressed(wall_stake.reset)
+
     controller.buttonR2.pressed(toggle_stake)
     controller.buttonR1.pressed(toggle_doink_piston)
 
@@ -392,29 +392,12 @@ def do_drive_loop() -> None:
 def driver():
     init()
     while True:
-        lift_intake.sorting_loop()
         do_drive_loop()
         wait(1 / 60, SECONDS)
 
-
-def release_stake():
-    stake_grabber.set(False)
-
-def grab_stake():
-    stake_grabber.set(True)
-
-def doinkDown():
-    doink_piston.set(False) 
-
-def doinkUp():
-    doink_piston.set(True)
-
-def auton_elevator_loop():
-    while True:
-        lift_intake.sorting_loop()
-        wait(1/60, SECONDS)
-
 def auton():
+    lift_intake.stop()
+
     wait(0.5, SECONDS)
 
     wall_stake.score()
@@ -422,56 +405,9 @@ def auton():
 
     drivetrain.turn_for(LEFT, 90, DEGREES, 85, wait=True)
 
-    auton_elevator_loop()
+    lift_intake.spin(FORWARD)
+
     drivetrain.drive_for(FORWARD, 85, INCHES, 90, PERCENT)
-    
-    
-    #idk i left out the rest of the auton
-        
-    """release_stake()
-
-    # Wait for the piston to finish retracting.
-    wait(0.3, SECONDS)
-
-    # Drive backwards into a stake
-    drivetrain.drive_for(REVERSE, 32, INCHES, 65, PERCENT)
-
-    # Wait for the robot to stabilize
-    wait(0.5, SECONDS)
-
-    # Grab the stake
-    grab_stake()
-
-    # Wait for the piston to finish extending.
-    wait(0.2, SECONDS)
-
-    # Turn to grab the stake.
-    drivetrain.turn_for(AUTON_STARTING_SIDE, 45, DEGREES)
-
-    # Realign the stake after turning.
-    drivetrain.drive_for(FORWARD, 2, INCHES)
-
-    # Start the color sorting routine (remove if problematic)
-    Thread(auton_elevator_loop)
-
-    # Start the donut elevator and intake.
-    lift_intake.spin(FORWARD, 100, PERCENT)
-
-    # Wait to score.
-    wait(1, SECONDS)
-
-    # Goes in a direction depending on AUTON_STARTING_SIDE, picks up a donut that way.
-    drivetrain.drive_for(FORWARD, 26, INCHES, 40, PERCENT)
-
-    # Wait to score.
-    wait(2, SECONDS)
-
-    # Done.
-    drivetrain.stop()
-    lift_intake.stop()
-"""
-
-# Implementation here!
 
 def process_options_callback(data: dict[str, Any]):
     pass
