@@ -51,16 +51,6 @@ drivetrain= DriveTrain(
 #
 # (0, 240)                          (480, 240)
 
-
-#which retard did this
-#you can use // for floor in python you h*ckin dumb bunny
-def floor(x: float) -> int:
-    r = round(x)
-    if r > x:
-        return r - 1
-    else:
-        return r
-
 class _Option:
     def __init__(self, name: str, color: Color | Color.DefinedColor, choices: list[Any]):
         self.name = name
