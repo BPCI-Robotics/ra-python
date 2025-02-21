@@ -109,6 +109,7 @@ class SelectionMenu:
 class WallStake:
     def __init__(self, motor: Motor):
         self.motor = motor
+        self.motor.set_stopping(HOLD)
         self.absolute0Position = self.motor.position(DEGREES)
 
     #any of the following functions may be changed to self.motor.spin_for(FORWARD, 70, DEGREES, 60, RPM)
@@ -209,7 +210,8 @@ class DigitalOutToggleable(DigitalOut):
     def toggle(self):
         self.state = not self.state
         self.set(self.state)
-    
+
+#region Parts
 BLUE_SIG = Signature(1, -4645, -3641, -4143,4431, 9695, 7063, 2.5, 0)
 RED_SIG = Signature(2, 7935, 9719, 8827,-1261, -289, -775, 2.5, 0)
 
@@ -249,6 +251,8 @@ lift_intake = LiftIntake(
 
 wall_stake = WallStake(Motor(Ports.PORT8, GearSetting.RATIO_36_1, True))
 
+#endregion Parts
+
 def init():
     drivetrain.set_drive_velocity(0, PERCENT)
     drivetrain.set_turn_velocity(0, PERCENT)
@@ -271,18 +275,15 @@ def init():
     controller.buttonR2.pressed(stake_grabber.toggle)
     controller.buttonR1.pressed(doink_piston.toggle)
 
-def do_drive_loop() -> None:
-    accel_stick = controller.axis3.position()
-    turn_stick = controller.axis1.position()
-
-    lm.spin(FORWARD, accel_stick - turn_stick, PERCENT)
-    rm.spin(FORWARD, accel_stick + turn_stick, PERCENT)
-
-
 def driver():
     init()
     while True:
-        do_drive_loop()
+        accel_stick = controller.axis3.position()
+        turn_stick = controller.axis1.position()
+
+        lm.spin(FORWARD, accel_stick - turn_stick, PERCENT)
+        rm.spin(FORWARD, accel_stick + turn_stick, PERCENT)
+
         wait(1 / 60, SECONDS)
 
 config_auton_direction = LEFT
@@ -320,11 +321,18 @@ def start(config: dict[str, Any]):
         config_auton_direction = RIGHT
     
     if config["Auton type"] == "Match":
-        competiton = Competition(driver, auton_match)
+        competition = Competition(driver, auton_match)
     else:
-        competiton = Competition(driver, auton_skills)
-
-    driver()
+        competition = Competition(driver, auton_skills)
+    
+    if not competition.is_field_control() and not competition.is_competition_switch():
+        if config["Testing"] == "Auton":
+            if config["Auton type"] == "Match":
+                auton_match()
+            else:
+                auton_skills()
+        else:
+            driver()
 
 def main():
     menu = SelectionMenu()
@@ -332,6 +340,7 @@ def main():
     menu.add_option("Team color", Color.RED, ["Red", "Blue"])
     menu.add_option("Auton direction", Color.BLUE, ["Left", "Right"])
     menu.add_option("Auton type", Color.YELLOW, ["Match", "Skills"])
+    menu.add_option("Testing", Color.CYAN, ["Auton", "Driver Control"])
 
     menu.on_enter(start)
     menu.draw()
