@@ -61,6 +61,11 @@ class SelectionMenu:
             self.disabled = True
             return
     
+    def force_submit(self):
+            self.enter_callback(self._get_all())
+            self.disabled = True
+            return
+    
     def _get_all(self) -> dict[str, Any]:
         if self.disabled:
             return {}
@@ -171,33 +176,33 @@ class LiftIntake:
             # Exit: the donut is too far away (so it appears small)
             if enemy_donut.height < 30 or enemy_donut.width < 70:
                 continue
+            
+            print("Found an enemy donut.")
+            print("Waiting for switch to be hit.")
 
             # Hold on, I found something. Let's wait until the switch is hit.
-            timer = 0
-            akita_neru = False
-
             while not self.limit_switch.pressing():
-                wait(10)
-                timer += 10
+                wait(15)
 
-                # 1. Two seconds have passed and the donut did not make it to the top.
-                # 2. The lift intake is not spinning anymore. No need to continue waiting.
-                # 3. The driver has asked to disable color sorting. No need to continue waiting.
-                akita_neru = timer > 2000 or not self.running or not self.sorting_enabled
-
-                if akita_neru:
+                if not self.sorting_enabled:
                     break
+            
+            print("Switch was hit.")
 
-            # Exit: the donut did not make it to the top.
-            if (akita_neru):
+            # Exit: Driver turned off color sort.
+            if (not self.sorting_enabled):
                 continue
 
             save_direction = lift_intake._get_direction()
 
-            wait(100)
-            lift_intake.motor.spin_for(REVERSE, 180, DEGREES, 70, PERCENT, True)
-            print("Gooned!")
-            wait(250)
+            print("I think donut got to top")
+            wait(25, MSEC)
+            lift_intake.stop()
+            lift_intake.spin(REVERSE)
+            print("I went backwards!")
+            wait(1300, MSEC)
+            print("Done")
+            print("")
 
             lift_intake.spin(save_direction)
 
@@ -297,11 +302,13 @@ def auton_match():
     wall_stake.score()
     drivetrain.drive_for(REVERSE, 20, INCHES, 80, PERCENT)
 
-    drivetrain.turn_for(config_auton_direction, 90, DEGREES, 85, wait=True)
+    drivetrain.turn_for(config_auton_direction, 45, DEGREES, 85, wait=True)
 
     lift_intake.spin(FORWARD)
 
     drivetrain.drive_for(FORWARD, 85, INCHES, 90, PERCENT)
+
+    lift_intake._sorting_loop()
 
 def auton_skills():
     pass
@@ -340,10 +347,13 @@ def main():
     menu.add_option("Team color", Color.RED, ["Red", "Blue"])
     menu.add_option("Auton direction", Color.BLUE, ["Left", "Right"])
     menu.add_option("Auton type", Color.YELLOW, ["Match", "Skills"])
-    menu.add_option("Testing", Color.CYAN, ["Auton", "Driver Control"])
+    menu.add_option("Testing", Color.CYAN, ["Driver Control", "Auton"])
 
     menu.on_enter(start)
+    
     menu.draw()
+    print("\033[2J")
+    controller.buttonLeft.pressed(menu.force_submit)
 
 if __name__ == "__main__":
     main()    
