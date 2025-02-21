@@ -25,53 +25,15 @@ class SelectionMenu:
         self.count = 0
         self.options: list[SelectionMenu._Option] = []
 
-        self.select = 0
-
         self.disabled = False
-        self.enter_callbacks: list[Callable[[dict[str, Any]], None]] = []
+        self.enter_callback: Callable[[dict[str, Any]], None]
 
         brain.screen.pressed(self._on_brain_screen_press)
-
-        controller.buttonLeft.pressed(self._on_arrow_event, ('L',))
-        controller.buttonRight.pressed(self._on_arrow_event, ('R',))
-        controller.buttonUp.pressed(self._on_arrow_event, ('U',))
-        controller.buttonDown.pressed(self._on_arrow_event, ('D',))
 
         self.add_option("Enter", Color.WHITE, ["", "Are you sure?", "ENTERED"])
     
     def on_enter(self, callback: Callable[[dict[str, Any]], None]):
-        self.enter_callbacks.append(callback)
-
-    def _on_arrow_event(self, event):
-        if self.disabled:
-            return
-        
-        if event == 'L':
-            self.options[self.select].prev()
-        
-        if event == 'R':
-            self.options[self.select].next()
-        
-        if event == 'U':
-            if self.select == 0:
-                self.select = self.count - 1
-            else:
-                self.select -= 1
-          
-        if event == 'D':
-            self.select = (self.select + 1) % self.count
-        
-        if self.options[self.count - 1].value() == "ENTERED":
-            for callback in self.enter_callbacks:
-                callback(self._get_all())
-            self.draw()
-            self.disabled = True
-            return
-        
-        if self.select != self.count - 1 and self.options[self.count - 1].index != 0:
-            self.options[self.count - 1].index = 0
-
-        self.draw()
+        self.enter_callback = callback
 
     def add_option(self, name: str, color: Color | Color.DefinedColor, choices: list[Any]):
         if self.disabled:
@@ -95,6 +57,11 @@ class SelectionMenu:
         self.options[x * self.count // 480].next()
 
         self.draw()
+
+        if self.options[self.count - 1].value() == "ENTERED":
+            self.enter_callback(self._get_all())
+            self.disabled = True
+            return
     
     def _get_all(self) -> dict[str, Any]:
         if self.disabled:
@@ -119,13 +86,9 @@ class SelectionMenu:
         for option in self.options:
             brain.screen.set_pen_color(option.color)
             brain.screen.set_cursor(i + 1, 1)
-            select_marker = ">> " if self.select == i else "   "
-            brain.screen.print(select_marker + option.name + ": " + str(option.value()))
+            brain.screen.print(option.name + ": " + str(option.value()))
 
             i += 1
-        
-        # Draw the buttons
-        # |--10--|Button|--10--|Button|--10--|Button|--10--|
 
         canvas_width = 480
         canvas_height = 240
