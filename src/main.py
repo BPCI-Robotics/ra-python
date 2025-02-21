@@ -41,8 +41,6 @@ class SelectionMenu:
         
         self.options.insert(self.count - 1, SelectionMenu._Option(name, color, choices))
         self.count += 1
-
-        self.draw()
     
     def _on_brain_screen_press(self):
         if self.disabled:
@@ -386,6 +384,7 @@ def main():
     menu.add_option("Auton type", Color.YELLOW, ["Match", "Skills"])
 
     menu.on_enter(process_options_callback)
+    menu.draw()
 
 if __name__ == "__main__":
     main()    
