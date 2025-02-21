@@ -119,7 +119,7 @@ class WallStake:
 
     #any of the following functions may be changed to self.motor.spin_for(FORWARD, 70, DEGREES, 60, RPM)
     def pickup(self):
-        self.motor.spin_to_position(70, DEGREES, 60, RPM)
+        self.motor.spin_to_position(50, DEGREES, 60, RPM)
             
     def hold(self):
         self.motor.spin_to_position(140, DEGREES, 60, RPM)
