@@ -106,75 +106,9 @@ class SelectionMenu:
             )
             i += 1
 
-class _PID_Basic:
-    def __init__(self, PID: tuple[float, float, float], setter: Callable[[float], None], getter: Callable[[], float]):
-        self.Kp = PID[0]
-        self.Ki = PID[1]
-        self.Kd = PID[2]
-
-        self.set_val = setter
-        self.get_val = getter
-
-        self.setpoint = 0
-
-        self.running = False
-
-    def start(self):
-        self.running = True  
-
-    def __call__(self, setpoint: float, block = False):
-        if (not self.running):
-            self.start()
-        
-        self.setpoint = setpoint
-        t = brain.timer.time(SECONDS)
-        # print("Waiting for velocity to be", setpoint)
-        if block:
-            while abs(self.setpoint - self.get_val()) > 1:
-                sleep(1 / 30, SECONDS)
-
-    def loop(self):
-        time_prev = brain.timer.time(SECONDS)
-        e_prev = 0
-
-        Kp = self.Kp
-        Ki = self.Ki
-        Kd = self.Kd
-        I = 0
-
-        while self.running:
-            sleep(1 / 60, SECONDS)
-
-            time = brain.timer.time(SECONDS)
-            # PID calculations
-            e = self.setpoint - self.get_val()
-
-            P = Kp*e
-            I += Ki*e*(time - time_prev)
-            D = Kd*(e - e_prev)/(time - time_prev)
-
-            MV = P + I + D
-
-            e_prev = e
-            time_prev = time
-
-            self.set_val(self.get_val() + MV)
-
-class RollingAverage:
-    def __init__(self, size: int):
-        self.size = size
-        self.data = [0.0] * self.size
-        self.pos = 0
-    
-    def __call__(self, val: float) -> float:
-        self.data[self.pos] = val
-        self.pos = (self.pos + 1) % self.size
-
-        return sum(self.data) / self.size
-
 class WallStake:
-    def __init__(self):
-        self.motor = Motor(Ports.PORT8, GearSetting.RATIO_36_1, True)
+    def __init__(self, motor: Motor):
+        self.motor = motor
         self.absolute0Position = self.motor.position(DEGREES)
 
     #any of the following functions may be changed to self.motor.spin_for(FORWARD, 70, DEGREES, 60, RPM)
@@ -266,6 +200,16 @@ class LiftIntake:
 
             lift_intake.spin(save_direction)
 
+class DigitalOutToggleable(DigitalOut):
+    def __init__(self, port, default_state=False):
+        super().__init__(port)
+
+        self.state = default_state
+
+    def toggle(self):
+        self.state = not self.state
+        self.set(self.state)
+    
 BLUE_SIG = Signature(1, -4645, -3641, -4143,4431, 9695, 7063, 2.5, 0)
 RED_SIG = Signature(2, 7935, 9719, 8827,-1261, -289, -775, 2.5, 0)
 
@@ -284,8 +228,8 @@ rm= MotorGroup(
         Motor(Ports.PORT6, GearSetting.RATIO_6_1, True),
     )
 
-stake_grabber = DigitalOut(brain.three_wire_port.a)
-doink_piston = DigitalOut(brain.three_wire_port.b)
+stake_grabber = DigitalOutToggleable(brain.three_wire_port.a)
+doink_piston = DigitalOutToggleable(brain.three_wire_port.b)
 
 drivetrain= DriveTrain(
                 lm,
@@ -303,19 +247,7 @@ lift_intake = LiftIntake(
     Limit(brain.three_wire_port.c)
 )
 
-wall_stake = WallStake()
-
-_stake_state = False
-def toggle_stake():
-    global _stake_state
-    _stake_state = not _stake_state
-    stake_grabber.set(_stake_state)
-    
-_doink_state = False
-def toggle_doink_piston():
-    global _doink_state
-    _doink_state = not _doink_state
-    doink_piston.set(_doink_state)
+wall_stake = WallStake(Motor(Ports.PORT8, GearSetting.RATIO_36_1, True))
 
 def init():
     drivetrain.set_drive_velocity(0, PERCENT)
@@ -336,8 +268,8 @@ def init():
     controller.buttonA.pressed(wall_stake.score)
     controller.buttonB.pressed(wall_stake.reset)
 
-    controller.buttonR2.pressed(toggle_stake)
-    controller.buttonR1.pressed(toggle_doink_piston)
+    controller.buttonR2.pressed(stake_grabber.toggle)
+    controller.buttonR1.pressed(doink_piston.toggle)
 
 def do_drive_loop() -> None:
     accel_stick = controller.axis3.position()
@@ -353,7 +285,10 @@ def driver():
         do_drive_loop()
         wait(1 / 60, SECONDS)
 
-def auton():
+config_auton_direction = LEFT
+def auton_match():
+    global config_auton_direction
+
     lift_intake.stop()
 
     wait(0.5, SECONDS)
@@ -361,19 +296,34 @@ def auton():
     wall_stake.score()
     drivetrain.drive_for(REVERSE, 20, INCHES, 80, PERCENT)
 
-    drivetrain.turn_for(LEFT, 90, DEGREES, 85, wait=True)
+    drivetrain.turn_for(config_auton_direction, 90, DEGREES, 85, wait=True)
 
     lift_intake.spin(FORWARD)
 
     drivetrain.drive_for(FORWARD, 85, INCHES, 90, PERCENT)
 
-def process_options_callback(data: dict[str, Any]):
-    if data["Team color"] == "Red":
+def auton_skills():
+    pass
+
+def start(config: dict[str, Any]):
+
+    global config_auton_direction
+
+    if config["Team color"] == "Red":
         lift_intake.set_enemy_sig(BLUE_SIG)
     else:
         lift_intake.set_enemy_sig(RED_SIG)
+    
+    if config["Auton direction"] == "Left":
+        config_auton_direction = LEFT
+    else:
+        config_auton_direction = RIGHT
+    
+    if config["Auton type"] == "Match":
+        competiton = Competition(driver, auton_match)
+    else:
+        competiton = Competition(driver, auton_skills)
 
-    Competition(driver, auton) 
     driver()
 
 def main():
@@ -383,7 +333,7 @@ def main():
     menu.add_option("Auton direction", Color.BLUE, ["Left", "Right"])
     menu.add_option("Auton type", Color.YELLOW, ["Match", "Skills"])
 
-    menu.on_enter(process_options_callback)
+    menu.on_enter(start)
     menu.draw()
 
 if __name__ == "__main__":
