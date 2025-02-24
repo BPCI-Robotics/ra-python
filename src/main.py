@@ -478,13 +478,15 @@ def start(config: dict[str, Any]):
     else:
         config_auton_direction = RIGHT
     
-    if config["Auton type"] == "Match":
-        if config['Match type'] == "Quals":
-            competition = Competition(driver, auton_quals)
-        elif config['Match type'] == "Elims":
-            competition = Competition(driver, auton_elims)
-    else:
+    if config["Auton type"] == "Skills":
         competition = Competition(driver, auton_skills)
+
+    elif config['Match type'] == "Quals":
+        competition = Competition(driver, auton_quals)
+
+    elif config['Match type'] == "Elims":
+        competition = Competition(driver, auton_elims)
+        
     
     if not competition.is_field_control() and not competition.is_competition_switch():
         if config["Testing"] == "Auton":
@@ -503,8 +505,7 @@ def main():
 
     menu.add_option("Team color", Color.RED, ["Red", "Blue"])
     menu.add_option("Auton direction", Color.BLUE, ["Left", "Right"])
-    menu.add_option("Match type", Color.PURPLE, ["Quals", "Elims"])
-    menu.add_option("Auton type", Color.YELLOW, ["Match", "Skills"])
+    menu.add_option("Auton type", Color.PURPLE, ["Quals", "Elims", "Skills"])
     menu.add_option("Testing", Color.CYAN, ["Driver Control", "Auton"])
 
     menu.on_enter(start)
