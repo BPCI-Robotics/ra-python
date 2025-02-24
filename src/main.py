@@ -1,5 +1,6 @@
 from vex import *
 
+# COMPLETED
 class SelectionMenu:
     class _Option:
         def __init__(self, name: str, color: Color | Color.DefinedColor, choices: list[Any]):
@@ -111,6 +112,7 @@ class SelectionMenu:
             )
             i += 1
 
+# TODO: Add support for the rotation encoder we just added (port 11 likely).
 class WallStake:
     def __init__(self, motor: Motor):
         self.motor = motor
@@ -130,6 +132,8 @@ class WallStake:
     def reset(self):
         self.motor.spin_to_position(self.absolute0Position, DEGREES, 70, RPM)
 
+# TODO: Clean up the starting and stopping of the loop.
+# TODO: Debug why it doesn't reverse.
 class LiftIntake:
     def __init__(self, motor: Motor, vision: Vision, limit_switch: Limit):
         self.motor = motor
@@ -141,6 +145,8 @@ class LiftIntake:
         self.enemy_sig = RED_SIG
 
         self.motor.set_stopping(BRAKE)
+    
+    def start(self):
         Thread(self._sorting_loop)
     
     def set_enemy_sig(self, sig: Signature):
@@ -206,6 +212,7 @@ class LiftIntake:
 
             lift_intake.spin(save_direction)
 
+# COMPLETED
 class DigitalOutToggleable(DigitalOut):
     def __init__(self, port, default_state=False):
         super().__init__(port)
@@ -237,7 +244,7 @@ rm= MotorGroup(
 
 stake_grabber = DigitalOutToggleable(brain.three_wire_port.a)
 doink_piston = DigitalOutToggleable(brain.three_wire_port.b)
-imu = Inertial(10)
+imu = Inertial(Ports.PORT10)
 
 drivetrain= SmartDrive(
                 lm,
@@ -260,6 +267,7 @@ wall_stake = WallStake(Motor(Ports.PORT8, GearSetting.RATIO_36_1, True))
 
 #endregion Parts
 
+# NOTHING TO DO
 def init():
     drivetrain.set_drive_velocity(0, PERCENT)
     drivetrain.set_turn_velocity(0, PERCENT)
@@ -282,8 +290,11 @@ def init():
     controller.buttonR2.pressed(stake_grabber.toggle)
     controller.buttonR1.pressed(doink_piston.toggle)
 
+    lift_intake.start()
+
 def driver():
     init()
+    
     while True:
         accel_stick = controller.axis3.position()
         turn_stick = controller.axis1.position()
@@ -325,7 +336,8 @@ def auton_quals():
 
         drivetrain.turn_for(RIGHT, 120, DEGREES, 85, PERCENT, True)
 
-        lift_intake._sorting_loop()
+        lift_intake.start()
+
         drivetrain.drive_for(FORWARD, 34, INCHES, 90, PERCENT, True)
         drivetrain.drive_for(REVERSE, 5, INCHES, 80, PERCENT, True)
         #after testing, we can add the above two lines again to pick up a third donut onto the stake
@@ -361,7 +373,7 @@ def auton_quals():
         lift_intake.motor.spin_for(REVERSE, 1, TURNS)
         drivetrain.turn_for(LEFT, 90, DEGREES, 80, PERCENT, True)
 
-        lift_intake._sorting_loop()
+        lift_intake.start()
 
         drivetrain.drive_for(FORWARD, 35, INCHES, 90, PERCENT, True)
         wait(0.5, SECONDS)
@@ -401,7 +413,7 @@ def auton_elims():
         lift_intake.motor.spin_for(REVERSE, 1, TURNS)
         drivetrain.turn_for(RIGHT, 90, DEGREES, 80, PERCENT, True)
 
-        lift_intake._sorting_loop()
+        lift_intake.start()
         drivetrain.drive_for(FORWARD, 20, INCHES, True)
         drivetrain.drive_for(REVERSE, 4, INCHES, True)
 
@@ -437,7 +449,7 @@ def auton_elims():
         lift_intake.motor.spin_for(REVERSE, 1, TURNS)
         drivetrain.turn_for(LEFT, 90, DEGREES, 80, PERCENT, True)
 
-        lift_intake._sorting_loop()
+        lift_intake.start()
 
         drivetrain.drive_for(FORWARD, 35, INCHES, 90, PERCENT, True)
         wait(0.5, SECONDS)
@@ -465,7 +477,7 @@ def auton_skills():
     pass
 
 def start(config: dict[str, Any]):
-
+    print(config)
     global config_auton_direction
 
     if config["Team color"] == "Red":
@@ -481,24 +493,31 @@ def start(config: dict[str, Any]):
     if config["Auton type"] == "Skills":
         competition = Competition(driver, auton_skills)
 
-    elif config['Match type'] == "Quals":
+    elif config['Auton type'] == "Quals":
         competition = Competition(driver, auton_quals)
 
-    elif config['Match type'] == "Elims":
+    elif config['Auton type'] == "Elims":
         competition = Competition(driver, auton_elims)
-        
-    
+
     if not competition.is_field_control() and not competition.is_competition_switch():
-        if config["Testing"] == "Auton":
-            if config["Auton type"] == "Match":
-                if config["Match type"] == "Quals":
-                    auton_quals()
-                elif config["Match type"] == "Elims":
-                    auton_elims()
-            else:
-                auton_skills()
-        else:
+        print("Not field control.")
+        if config["Testing"] == "Driver Control":
+            print("Driver")
             driver()
+            exit()
+
+        if config["Auton type"] == "Skills":
+            print("Skills")
+            auton_skills()
+
+        elif config['Auton type'] == "Quals":
+            print("Quals")
+            auton_quals()
+
+        elif config['Auton type'] == "Elims":
+            print("Elims")
+            auton_elims()
+
 
 def main():
     menu = SelectionMenu()
