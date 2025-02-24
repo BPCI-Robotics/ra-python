@@ -299,9 +299,10 @@ def auton_quals():
     if config_auton_direction == LEFT:
         #run ring rush with alliance stake scoring
 
-        drivetrain.drive_for(REVERSE, 25, INCHES, 80, PERCENT, True)
-        drivetrain.turn_for(RIGHT, 90, DEGREES, 75, PERCENT, True)
-        drivetrain.drive_for(REVERSE, 3, INCHES, 60, PERCENT, True)
+        drivetrain.drive_for(FORWARD, 25, INCHES, 80, PERCENT, True)
+        drivetrain.turn_for(LEFT, 150, DEGREES, 75, PERCENT, True)
+        drivetrain.drive_for(FORWARD, 2, INCHES, 60, PERCENT, True)
+        drivetrain.drive_for
 
         #give some time to stabilize
         wait(0.2, SECONDS)
@@ -312,39 +313,39 @@ def auton_quals():
 
         drivetrain.drive_for(FORWARD, 10, INCHES, 90, PERCENT, True)
 
-        drivetrain.turn_for(LEFT, 200, DEGREES, 80, PERCENT)
+        drivetrain.turn_for(LEFT, 91.6, DEGREES, 80, PERCENT)
 
-        drivetrain.drive_for(FORWARD, 55, INCHES, 90, PERCENT, True)
+        drivetrain.drive_for(REVERSE, 55, INCHES, 90, PERCENT, True)
         drivetrain.drive_for(FORWARD, 5, INCHES, 80, PERCENT, True)
         stake_grabber.toggle()
 
         wait(0.2, SECONDS)
 
-        drivetrain.turn_for(RIGHT, 120, DEGREES, 85, PERCENT, True)
+        drivetrain.turn_for(RIGHT, 200, DEGREES, 85, PERCENT, True)
 
         lift_intake._sorting_loop()
         drivetrain.drive_for(FORWARD, 34, INCHES, 90, PERCENT, True)
         drivetrain.drive_for(REVERSE, 5, INCHES, 80, PERCENT, True)
         #after testing, we can add the above two lines again to pick up a third donut onto the stake
 
-        drivetrain.turn_for(RIGHT, 90, DEGREES, 80, PERCENT)
+        drivetrain.turn_for(RIGHT, 150, DEGREES, 80, PERCENT)
 
         drivetrain.drive_for(FORWARD, 30, INCHES, 90, PERCENT, True)
         drivetrain.drive_for(REVERSE, 5, INCHES, 80, PERCENT, True)
 
         #check the time - if we don't have much time left, then just hit ladder
-        drivetrain.turn_for(RIGHT, 90, DEGREES, 85, PERCENT, True)
+        drivetrain.turn_for(RIGHT, 150, DEGREES, 85, PERCENT, True)
         drivetrain.drive_for(FORWARD, 60, INCHES, 90, PERCENT)
 
         #check the time - if we have time left, then the following code will apply
 
-        #drivetrain.turn_for(LEFT, 90, DEGREES, 75, PERCENT, True)
+        #drivetrain.turn_for(LEFT, 150, DEGREES, 75, PERCENT, True)
 
         #drivetrain.drive_for(FORWARD, 51, INCHES, 90, PERCENT, True)
         
         #doink_piston.toggle()
         #drivetrain.drive_for(FORWARD, 10, INCHES, 80, PERCENT)
-        #drivetrain.turn_for(LEFT, 70, DEGREES, 90, PERCENT)
+        #drivetrain.turn_for(LEFT, 116.6, DEGREES, 90, PERCENT)
 
     elif config_auton_direction == RIGHT:
         #ts for goal rush
@@ -356,7 +357,7 @@ def auton_quals():
         #score the preload
         lift_intake.motor.spin_for(REVERSE, 2, TURNS, True)
         lift_intake.motor.spin_for(REVERSE, 1, TURNS)
-        drivetrain.turn_for(LEFT, 90, DEGREES, 80, PERCENT, True)
+        drivetrain.turn_for(LEFT, 150, DEGREES, 80, PERCENT, True)
 
         lift_intake._sorting_loop()
 
@@ -364,20 +365,20 @@ def auton_quals():
         wait(0.5, SECONDS)
         drivetrain.drive_for(REVERSE, 5, INCHES, 80, PERCENT, True)
 
-        drivetrain.turn_for(RIGHT, 90, DEGREES, 85, PERCENT, True)
+        drivetrain.turn_for(RIGHT, 150, DEGREES, 85, PERCENT, True)
         drivetrain.drive_for(FORWARD, 12, INCHES, 90, PERCENT, True)
 
-        drivetrain.turn_for(LEFT, 90, DEGREES, 85, PERCENT, True)
+        drivetrain.turn_for(LEFT, 150, DEGREES, 85, PERCENT, True)
         drivetrain.drive_for(FORWARD, 18, INCHES, 90, PERCENT, True)
 
-        drivetrain.turn_for(RIGHT, 90, DEGREES, 85, PERCENT, True)
+        drivetrain.turn_for(RIGHT, 150, DEGREES, 85, PERCENT, True)
 
         drivetrain.drive_for(FORWARD, 60, INCHES, 90, PERCENT, True)
         
         #clear corner
         doink_piston.toggle()
         drivetrain.drive_for(FORWARD, 10, INCHES, 80, PERCENT)
-        drivetrain.turn_for(RIGHT, 70, DEGREES, 90, PERCENT)
+        drivetrain.turn_for(RIGHT, 116.6, DEGREES, 90, PERCENT)
 
 
 
@@ -396,31 +397,31 @@ def auton_elims():
         #score the preload
         lift_intake.motor.spin_for(REVERSE, 2, TURNS, True)
         lift_intake.motor.spin_for(REVERSE, 1, TURNS)
-        drivetrain.turn_for(RIGHT, 90, DEGREES, 80, PERCENT, True)
+        drivetrain.turn_for(RIGHT, 150, DEGREES, 80, PERCENT, True)
 
         lift_intake._sorting_loop()
         drivetrain.drive_for(FORWARD, 20, INCHES, True)
         drivetrain.drive_for(REVERSE, 4, INCHES, True)
 
-        drivetrain.turn_for(RIGHT, 90, DEGREES, 85, PERCENT, True)
+        drivetrain.turn_for(RIGHT, 150, DEGREES, 85, PERCENT, True)
         #"thrust" the donuts
         drivetrain.drive_for(FORWARD, 18, INCHES, 85, PERCENT, True)
         drivetrain.drive_for(REVERSE, 7, INCHES, 85, PERCENT, True)
-        drivetrain.turn_for(LEFT, 90, DEGREES, 85, PERCENT, True)
+        drivetrain.turn_for(LEFT, 150, DEGREES, 85, PERCENT, True)
         drivetrain.drive_for(FORWARD, 8, INCHES, 85, PERCENT, True)
-        drivetrain.turn_for(RIGHT, 90, DEGREES, 85, PERCENT, True)
+        drivetrain.turn_for(RIGHT, 150, DEGREES, 85, PERCENT, True)
         drivetrain.drive_for(FORWARD, 8, INCHES, 80, PERCENT, True)
         drivetrain.drive_for(REVERSE, 8, INCHES, 85, PERCENT, True)
 
-        drivetrain.turn_for(LEFT, 90, DEGREES, 75, PERCENT, True)
+        drivetrain.turn_for(LEFT, 150, DEGREES, 75, PERCENT, True)
         drivetrain.drive_for(FORWARD, 14, INCHES, 90, PERCENT, True)
-        drivetrain.turn_for(LEFT, 90, DEGREES, 85, PERCENT, True)
+        drivetrain.turn_for(LEFT, 150, DEGREES, 85, PERCENT, True)
 
         drivetrain.drive_for(FORWARD, 51, INCHES, 90, PERCENT, True)
         
         doink_piston.toggle()
         drivetrain.drive_for(FORWARD, 10, INCHES, 80, PERCENT)
-        drivetrain.turn_for(LEFT, 70, DEGREES, 90, PERCENT)
+        drivetrain.turn_for(LEFT, 116.6, DEGREES, 90, PERCENT)
         
     elif config_auton_direction == RIGHT:
         #ts for goal rush again
@@ -432,7 +433,7 @@ def auton_elims():
         #score the preload
         lift_intake.motor.spin_for(REVERSE, 2, TURNS, True)
         lift_intake.motor.spin_for(REVERSE, 1, TURNS)
-        drivetrain.turn_for(LEFT, 90, DEGREES, 80, PERCENT, True)
+        drivetrain.turn_for(LEFT, 150, DEGREES, 80, PERCENT, True)
 
         lift_intake._sorting_loop()
 
