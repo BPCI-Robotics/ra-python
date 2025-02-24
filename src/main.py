@@ -292,25 +292,173 @@ def driver():
         wait(1 / 60, SECONDS)
 
 config_auton_direction = LEFT
-def auton_match():
+
+def auton_quals():
+    global config_auton_direction
+    
+    if config_auton_direction == LEFT:
+        #run ring rush with alliance stake scoring
+
+        drivetrain.drive_for(REVERSE, 25, INCHES, 80, PERCENT, True)
+        drivetrain.turn_for(RIGHT, 90, DEGREES, 75, PERCENT, True)
+        drivetrain.drive_for(REVERSE, 3, INCHES, 60, PERCENT, True)
+
+        #give some time to stabilize
+        wait(0.2, SECONDS)
+
+        wall_stake.score()
+
+        wait(0.5, SECONDS)
+
+        drivetrain.drive_for(FORWARD, 10, INCHES, 90, PERCENT, True)
+
+        drivetrain.turn_for(LEFT, 200, DEGREES, 80, PERCENT)
+
+        drivetrain.drive_for(FORWARD, 55, INCHES, 90, PERCENT, True)
+        drivetrain.drive_for(FORWARD, 5, INCHES, 80, PERCENT, True)
+        stake_grabber.toggle()
+
+        wait(0.2, SECONDS)
+
+        drivetrain.turn_for(RIGHT, 120, DEGREES, 85, PERCENT, True)
+
+        lift_intake._sorting_loop()
+        drivetrain.drive_for(FORWARD, 34, INCHES, 90, PERCENT, True)
+        drivetrain.drive_for(REVERSE, 5, INCHES, 80, PERCENT, True)
+        #after testing, we can add the above two lines again to pick up a third donut onto the stake
+
+        drivetrain.turn_for(RIGHT, 90, DEGREES, 80, PERCENT)
+
+        drivetrain.drive_for(FORWARD, 30, INCHES, 90, PERCENT, True)
+        drivetrain.drive_for(REVERSE, 5, INCHES, 80, PERCENT, True)
+
+        #check the time - if we don't have much time left, then just hit ladder
+        drivetrain.turn_for(RIGHT, 90, DEGREES, 85, PERCENT, True)
+        drivetrain.drive_for(FORWARD, 60, INCHES, 90, PERCENT)
+
+        #check the time - if we have time left, then the following code will apply
+
+        #drivetrain.turn_for(LEFT, 90, DEGREES, 75, PERCENT, True)
+
+        #drivetrain.drive_for(FORWARD, 51, INCHES, 90, PERCENT, True)
+        
+        #doink_piston.toggle()
+        #drivetrain.drive_for(FORWARD, 10, INCHES, 80, PERCENT)
+        #drivetrain.turn_for(LEFT, 70, DEGREES, 90, PERCENT)
+
+    elif config_auton_direction == RIGHT:
+        #ts for goal rush
+        drivetrain.drive_for(REVERSE, 40, INCHES, 85, PERCENT, True)
+        drivetrain.drive_for(REVERSE, 5, INCHES, 85, PERCENT)
+        stake_grabber.toggle()
+
+        wait(0.3, SECONDS)
+        #score the preload
+        lift_intake.motor.spin_for(REVERSE, 2, TURNS, True)
+        lift_intake.motor.spin_for(REVERSE, 1, TURNS)
+        drivetrain.turn_for(LEFT, 90, DEGREES, 80, PERCENT, True)
+
+        lift_intake._sorting_loop()
+
+        drivetrain.drive_for(FORWARD, 35, INCHES, 90, PERCENT, True)
+        wait(0.5, SECONDS)
+        drivetrain.drive_for(REVERSE, 5, INCHES, 80, PERCENT, True)
+
+        drivetrain.turn_for(RIGHT, 90, DEGREES, 85, PERCENT, True)
+        drivetrain.drive_for(FORWARD, 12, INCHES, 90, PERCENT, True)
+
+        drivetrain.turn_for(LEFT, 90, DEGREES, 85, PERCENT, True)
+        drivetrain.drive_for(FORWARD, 18, INCHES, 90, PERCENT, True)
+
+        drivetrain.turn_for(RIGHT, 90, DEGREES, 85, PERCENT, True)
+
+        drivetrain.drive_for(FORWARD, 60, INCHES, 90, PERCENT, True)
+        
+        #clear corner
+        doink_piston.toggle()
+        drivetrain.drive_for(FORWARD, 10, INCHES, 80, PERCENT)
+        drivetrain.turn_for(RIGHT, 70, DEGREES, 90, PERCENT)
+
+
+
+
+def auton_elims():
     global config_auton_direction
 
-    lift_intake.stop()
+    if config_auton_direction == LEFT:
+        #its ring rush time
+        #without alliance stake
+        drivetrain.drive_for(REVERSE, 40, INCHES, 85, PERCENT, True)
+        drivetrain.drive_for(REVERSE, 5, INCHES, 85, PERCENT)
+        stake_grabber.toggle()
 
-    wait(0.5, SECONDS)
+        wait(0.3, SECONDS)
+        #score the preload
+        lift_intake.motor.spin_for(REVERSE, 2, TURNS, True)
+        lift_intake.motor.spin_for(REVERSE, 1, TURNS)
+        drivetrain.turn_for(RIGHT, 90, DEGREES, 80, PERCENT, True)
 
-    wall_stake.score()
-    drivetrain.drive_for(REVERSE, 20, INCHES, 80, PERCENT)
+        lift_intake._sorting_loop()
+        drivetrain.drive_for(FORWARD, 20, INCHES, True)
+        drivetrain.drive_for(REVERSE, 4, INCHES, True)
 
-    drivetrain.turn_for(config_auton_direction, 45, DEGREES, 85, wait=True)
+        drivetrain.turn_for(RIGHT, 90, DEGREES, 85, PERCENT, True)
+        #"thrust" the donuts
+        drivetrain.drive_for(FORWARD, 18, INCHES, 85, PERCENT, True)
+        drivetrain.drive_for(REVERSE, 7, INCHES, 85, PERCENT, True)
+        drivetrain.turn_for(LEFT, 90, DEGREES, 85, PERCENT, True)
+        drivetrain.drive_for(FORWARD, 8, INCHES, 85, PERCENT, True)
+        drivetrain.turn_for(RIGHT, 90, DEGREES, 85, PERCENT, True)
+        drivetrain.drive_for(FORWARD, 8, INCHES, 80, PERCENT, True)
+        drivetrain.drive_for(REVERSE, 8, INCHES, 85, PERCENT, True)
 
-    lift_intake.spin(FORWARD)
+        drivetrain.turn_for(LEFT, 90, DEGREES, 75, PERCENT, True)
+        drivetrain.drive_for(FORWARD, 14, INCHES, 90, PERCENT, True)
+        drivetrain.turn_for(LEFT, 90, DEGREES, 85, PERCENT, True)
 
-    drivetrain.drive_for(FORWARD, 85, INCHES, 90, PERCENT)
+        drivetrain.drive_for(FORWARD, 51, INCHES, 90, PERCENT, True)
+        
+        doink_piston.toggle()
+        drivetrain.drive_for(FORWARD, 10, INCHES, 80, PERCENT)
+        drivetrain.turn_for(LEFT, 70, DEGREES, 90, PERCENT)
+        
+    elif config_auton_direction == RIGHT:
+        #ts for goal rush again
+        drivetrain.drive_for(REVERSE, 40, INCHES, 85, PERCENT, True)
+        drivetrain.drive_for(REVERSE, 5, INCHES, 85, PERCENT)
+        stake_grabber.toggle()
 
-    lift_intake._sorting_loop()
+        wait(0.3, SECONDS)
+        #score the preload
+        lift_intake.motor.spin_for(REVERSE, 2, TURNS, True)
+        lift_intake.motor.spin_for(REVERSE, 1, TURNS)
+        drivetrain.turn_for(LEFT, 90, DEGREES, 80, PERCENT, True)
+
+        lift_intake._sorting_loop()
+
+        drivetrain.drive_for(FORWARD, 35, INCHES, 90, PERCENT, True)
+        wait(0.5, SECONDS)
+        drivetrain.drive_for(REVERSE, 5, INCHES, 80, PERCENT, True)
+
+        drivetrain.turn_for(RIGHT, 90, DEGREES, 85, PERCENT, True)
+        drivetrain.drive_for(FORWARD, 12, INCHES, 90, PERCENT, True)
+
+        drivetrain.turn_for(LEFT, 90, DEGREES, 85, PERCENT, True)
+        drivetrain.drive_for(FORWARD, 18, INCHES, 90, PERCENT, True)
+
+        drivetrain.turn_for(RIGHT, 90, DEGREES, 85, PERCENT, True)
+
+        drivetrain.drive_for(FORWARD, 60, INCHES, 90, PERCENT, True)
+        
+        #clear corner
+        doink_piston.toggle()
+        drivetrain.drive_for(FORWARD, 10, INCHES, 80, PERCENT)
+        drivetrain.turn_for(RIGHT, 70, DEGREES, 90, PERCENT)
+
 
 def auton_skills():
+    #routine plan
+    #no color sorting involved btw
     pass
 
 def start(config: dict[str, Any]):
@@ -328,14 +476,20 @@ def start(config: dict[str, Any]):
         config_auton_direction = RIGHT
     
     if config["Auton type"] == "Match":
-        competition = Competition(driver, auton_match)
+        if config['Match type'] == "Quals":
+            competition = Competition(driver, auton_quals)
+        elif config['Match type'] == "Elims":
+            competition = Competition(driver, auton_elims)
     else:
         competition = Competition(driver, auton_skills)
     
     if not competition.is_field_control() and not competition.is_competition_switch():
         if config["Testing"] == "Auton":
             if config["Auton type"] == "Match":
-                auton_match()
+                if config["Match type"] == "Quals":
+                    auton_quals()
+                elif config["Match type"] == "Elims":
+                    auton_elims()
             else:
                 auton_skills()
         else:
@@ -346,6 +500,7 @@ def main():
 
     menu.add_option("Team color", Color.RED, ["Red", "Blue"])
     menu.add_option("Auton direction", Color.BLUE, ["Left", "Right"])
+    menu.add_option("Match type", Color.PURPLE, ["Quals", "Elims"])
     menu.add_option("Auton type", Color.YELLOW, ["Match", "Skills"])
     menu.add_option("Testing", Color.CYAN, ["Driver Control", "Auton"])
 
@@ -357,3 +512,6 @@ def main():
 
 if __name__ == "__main__":
     main()    
+
+
+        
