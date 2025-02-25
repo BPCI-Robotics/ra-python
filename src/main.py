@@ -1,68 +1,3 @@
-#region VEXcode Generated Robot Configuration
-from vex import *
-import urandom
-
-# Brain should be defined by default
-brain=Brain()
-
-# Robot configuration code
-rotation_11 = Rotation(Ports.PORT11, False)
-motor_9 = Motor(Ports.PORT9, GearSetting.RATIO_18_1, False)
-left_motor_a = Motor(Ports.PORT1, GearSetting.RATIO_18_1, False)
-left_motor_b = Motor(Ports.PORT2, GearSetting.RATIO_18_1, False)
-left_drive_smart = MotorGroup(left_motor_a, left_motor_b)
-right_motor_a = Motor(Ports.PORT3, GearSetting.RATIO_18_1, True)
-right_motor_b = Motor(Ports.PORT4, GearSetting.RATIO_18_1, True)
-right_drive_smart = MotorGroup(right_motor_a, right_motor_b)
-drivetrain_inertial = Inertial(Ports.PORT5)
-drivetrain = SmartDrive(left_drive_smart, right_drive_smart, drivetrain_inertial, 319.19, 320, 40, MM, 1)
-
-
-# wait for rotation sensor to fully initialize
-wait(30, MSEC)
-
-
-# Make random actually random
-def initializeRandomSeed():
-    wait(100, MSEC)
-    random = brain.battery.voltage(MV) + brain.battery.current(CurrentUnits.AMP) * 100 + brain.timer.system_high_res()
-    urandom.seed(int(random))
-      
-# Set random seed 
-initializeRandomSeed()
-
-vexcode_initial_drivetrain_calibration_completed = False
-def calibrate_drivetrain():
-    # Calibrate the Drivetrain Inertial
-    global vexcode_initial_drivetrain_calibration_completed
-    sleep(200, MSEC)
-    brain.screen.print("Calibrating")
-    brain.screen.next_row()
-    brain.screen.print("Inertial")
-    drivetrain_inertial.calibrate()
-    while drivetrain_inertial.is_calibrating():
-        sleep(25, MSEC)
-    vexcode_initial_drivetrain_calibration_completed = True
-    brain.screen.clear_screen()
-    brain.screen.set_cursor(1, 1)
-
-
-# Calibrate the Drivetrain
-calibrate_drivetrain()
-
-
-def play_vexcode_sound(sound_name):
-    # Helper to make playing sounds from the V5 in VEXcode easier and
-    # keeps the code cleaner by making it clear what is happening.
-    print("VEXPlaySound:" + sound_name)
-    wait(5, MSEC)
-
-# add a small delay to make sure we don't print in the middle of the REPL header
-wait(200, MSEC)
-# clear the console to make sure we don't have the REPL in the console
-print("\033[2J")
-
-#endregion VEXcode Generated Robot Configuration
 from vex import *
 
 # COMPLETED
@@ -184,16 +119,21 @@ class WallStake:
         self.rotation = rotation
 
         self.motor.set_stopping(HOLD)
-        Thread(self.print_pos)
     
     def print_pos(self):
         while True:
-            wait(50, MSEC)
-            brain.screen.print(1, "Sensor:", self.rotation.position(DEGREES))
-            brain.screen.print(2, "Motor:", self.motor.position(DEGREES))
+            wait(200, MSEC)
+            brain.screen.clear_screen()
+            brain.screen.set_cursor(1, 1)
+            brain.screen.print("Sensor:", self.rotation.position(DEGREES))
+            brain.screen.set_cursor(2, 1)
+            brain.screen.print("Motor:", self.motor.position(DEGREES))
+
+    def start_log(self):
+        Thread(self.print_pos)
 
     def pickup(self):
-        self.motor.spin_to_position(50, DEGREES, 70, PERCENT)
+        self.motor.spin_to_position(26, DEGREES, 70, PERCENT)
             
     def start(self):
         self.motor.spin(FORWARD, 70, PERCENT)
@@ -205,7 +145,7 @@ class WallStake:
         self.motor.stop()
         
     def score(self):
-        self.motor.spin_to_position(300, DEGREES, 70, PERCENT)
+        self.motor.spin_to_position(300, DEGREES, 40, PERCENT)
 
     def reset(self):
         self.motor.spin_to_position(0, DEGREES, 70, PERCENT)
@@ -334,12 +274,13 @@ lift_intake = LiftIntake(
     Limit(brain.three_wire_port.c)
 )
 
-wall_stake = WallStake(Motor(Ports.PORT8, GearSetting.RATIO_36_1, False), Rotation(11))
+wall_stake = WallStake(Motor(Ports.PORT8, GearSetting.RATIO_36_1, False), Rotation(Ports.PORT11))
 
 #endregion Parts
 
 # NOTHING TO DO
 def driver_init():
+    drivetrain.calibrate()
     drivetrain.set_drive_velocity(0, PERCENT)
     drivetrain.set_turn_velocity(0, PERCENT)
     
@@ -391,16 +332,18 @@ def auton_quals():
         drivetrain.drive_for(FORWARD, 25, INCHES, 80, PERCENT, True)
         drivetrain.turn_for(LEFT, 90, DEGREES, 75, PERCENT, True)
         drivetrain.drive_for(FORWARD, 2, INCHES, 60, PERCENT, True)
-        drivetrain.drive_for
+        #drivetrain.drive_for
 
         #give some time to stabilize
         wait(0.2, SECONDS)
 
         wall_stake.score()
 
-        wait(0.5, SECONDS)
+        wait(1, SECONDS)
 
-        drivetrain.drive_for(FORWARD, 10, INCHES, 90, PERCENT)
+        drivetrain.drive_for(FORWARD, 5, INCHES, 90, PERCENT, True)
+        drivetrain.drive_for(FORWARD, 5, INCHES, 90, PERCENT)
+        wall_stake.reset()
 
         drivetrain.turn_for(LEFT, 55, DEGREES, 80, PERCENT)
 
@@ -556,6 +499,7 @@ def auton_skills():
 
 def start(config: dict[str, Any]):
     print(config)
+    wall_stake.start_log()
     global config_auton_direction
 
     if config["Team color"] == "Red":
