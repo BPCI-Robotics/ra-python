@@ -1,3 +1,68 @@
+#region VEXcode Generated Robot Configuration
+from vex import *
+import urandom
+
+# Brain should be defined by default
+brain=Brain()
+
+# Robot configuration code
+rotation_11 = Rotation(Ports.PORT11, False)
+motor_9 = Motor(Ports.PORT9, GearSetting.RATIO_18_1, False)
+left_motor_a = Motor(Ports.PORT1, GearSetting.RATIO_18_1, False)
+left_motor_b = Motor(Ports.PORT2, GearSetting.RATIO_18_1, False)
+left_drive_smart = MotorGroup(left_motor_a, left_motor_b)
+right_motor_a = Motor(Ports.PORT3, GearSetting.RATIO_18_1, True)
+right_motor_b = Motor(Ports.PORT4, GearSetting.RATIO_18_1, True)
+right_drive_smart = MotorGroup(right_motor_a, right_motor_b)
+drivetrain_inertial = Inertial(Ports.PORT5)
+drivetrain = SmartDrive(left_drive_smart, right_drive_smart, drivetrain_inertial, 319.19, 320, 40, MM, 1)
+
+
+# wait for rotation sensor to fully initialize
+wait(30, MSEC)
+
+
+# Make random actually random
+def initializeRandomSeed():
+    wait(100, MSEC)
+    random = brain.battery.voltage(MV) + brain.battery.current(CurrentUnits.AMP) * 100 + brain.timer.system_high_res()
+    urandom.seed(int(random))
+      
+# Set random seed 
+initializeRandomSeed()
+
+vexcode_initial_drivetrain_calibration_completed = False
+def calibrate_drivetrain():
+    # Calibrate the Drivetrain Inertial
+    global vexcode_initial_drivetrain_calibration_completed
+    sleep(200, MSEC)
+    brain.screen.print("Calibrating")
+    brain.screen.next_row()
+    brain.screen.print("Inertial")
+    drivetrain_inertial.calibrate()
+    while drivetrain_inertial.is_calibrating():
+        sleep(25, MSEC)
+    vexcode_initial_drivetrain_calibration_completed = True
+    brain.screen.clear_screen()
+    brain.screen.set_cursor(1, 1)
+
+
+# Calibrate the Drivetrain
+calibrate_drivetrain()
+
+
+def play_vexcode_sound(sound_name):
+    # Helper to make playing sounds from the V5 in VEXcode easier and
+    # keeps the code cleaner by making it clear what is happening.
+    print("VEXPlaySound:" + sound_name)
+    wait(5, MSEC)
+
+# add a small delay to make sure we don't print in the middle of the REPL header
+wait(200, MSEC)
+# clear the console to make sure we don't have the REPL in the console
+print("\033[2J")
+
+#endregion VEXcode Generated Robot Configuration
 from vex import *
 
 # COMPLETED
@@ -119,12 +184,22 @@ class WallStake:
         self.rotation = rotation
 
         self.motor.set_stopping(HOLD)
+        Thread(self.print_pos)
+    
+    def print_pos(self):
+        while True:
+            wait(50, MSEC)
+            brain.screen.print(1, "Sensor:", self.rotation.position(DEGREES))
+            brain.screen.print(2, "Motor:", self.motor.position(DEGREES))
 
     def pickup(self):
         self.motor.spin_to_position(50, DEGREES, 70, PERCENT)
             
     def start(self):
         self.motor.spin(FORWARD, 70, PERCENT)
+
+    def reverse(self):
+        self.motor.spin(REVERSE, 70, PERCENT)
 
     def stop(self):
         self.motor.stop()
@@ -163,6 +238,9 @@ class LiftIntake:
 
     def spin(self, direction: DirectionType.DirectionType):
         self.motor.spin(direction, 100, PERCENT)
+
+    def stop(self):
+        self.motor.stop()
     
     def _get_direction(self):
         return self.motor.direction()
@@ -193,18 +271,17 @@ class LiftIntake:
                 if not self.sorting_enabled:
                     break
 
-            save_direction = lift_intake._get_direction()
+            save_direction = self._get_direction()
 
             print("I think donut got to top")
             wait(25, MSEC)
-            lift_intake.stop()
-            lift_intake.spin(REVERSE)
+            self.spin(REVERSE)
             print("I went backwards!")
             wait(1300, MSEC)
             print("Done")
             print("")
 
-            lift_intake.spin(save_direction)
+            self.spin(save_direction)
 
 # COMPLETED
 class DigitalOutToggleable(DigitalOut):
@@ -257,7 +334,7 @@ lift_intake = LiftIntake(
     Limit(brain.three_wire_port.c)
 )
 
-wall_stake = WallStake(Motor(Ports.PORT8, GearSetting.RATIO_36_1, True))
+wall_stake = WallStake(Motor(Ports.PORT8, GearSetting.RATIO_36_1, False), Rotation(11))
 
 #endregion Parts
 
@@ -277,12 +354,13 @@ def driver_init():
     controller.buttonL1.released(lift_intake.stop)
 
     controller.buttonX.pressed(wall_stake.pickup)
-    controller.buttonY.pressed(wall_stake.score)
+    controller.buttonY.pressed(wall_stake.reset)
 
     controller.buttonA.pressed(wall_stake.start)
     controller.buttonA.released(wall_stake.stop)
 
-    controller.buttonB.pressed(wall_stake.reset)
+    controller.buttonB.pressed(wall_stake.reverse)
+    controller.buttonB.released(wall_stake.stop)
 
     controller.buttonR2.pressed(stake_grabber.toggle)
     controller.buttonR1.pressed(doink_piston.toggle)
