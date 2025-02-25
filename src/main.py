@@ -114,23 +114,26 @@ class SelectionMenu:
 
 # TODO: Add support for the rotation encoder we just added (port 11 likely).
 class WallStake:
-    def __init__(self, motor: Motor):
+    def __init__(self, motor: Motor, rotation: Rotation):
         self.motor = motor
-        self.motor.set_stopping(HOLD)
-        self.absolute0Position = self.motor.position(DEGREES)
+        self.rotation = rotation
 
-    #any of the following functions may be changed to self.motor.spin_for(FORWARD, 70, DEGREES, 60, RPM)
+        self.motor.set_stopping(HOLD)
+
     def pickup(self):
-        self.motor.spin_to_position(50, DEGREES, 60, RPM)
+        self.motor.spin_to_position(50, DEGREES, 70, PERCENT)
             
-    def hold(self):
-        self.motor.spin_to_position(140, DEGREES, 60, RPM)
+    def start(self):
+        self.motor.spin(FORWARD, 70, PERCENT)
+
+    def stop(self):
+        self.motor.stop()
         
     def score(self):
-        self.motor.spin_to_position(300, DEGREES, 70, RPM)
+        self.motor.spin_to_position(300, DEGREES, 70, PERCENT)
 
     def reset(self):
-        self.motor.spin_to_position(self.absolute0Position, DEGREES, 70, RPM)
+        self.motor.spin_to_position(0, DEGREES, 70, PERCENT)
 
 # TODO: Clean up the starting and stopping of the loop.
 # TODO: Debug why it doesn't reverse.
@@ -140,36 +143,36 @@ class LiftIntake:
         self.vision = vision
         self.limit_switch = limit_switch
 
-        self.running = False
-        self.sorting_enabled = True
-        self.enemy_sig = RED_SIG
+        self.sorting_enabled = False
+        self.enemy_sig = None
 
         self.motor.set_stopping(BRAKE)
     
-    def start(self):
+    def init_sorting(self, state: bool):
         Thread(self._sorting_loop)
+        self.sorting_enabled = state
+    
+    def start_sorting(self):
+        self.sorting_enabled = True
+    
+    def stop_sorting(self):
+        self.sorting_enabled = False
     
     def set_enemy_sig(self, sig: Signature):
         self.enemy_sig = sig
 
     def spin(self, direction: DirectionType.DirectionType):
-        self.running = True
         self.motor.spin(direction, 100, PERCENT)
     
     def _get_direction(self):
         return self.motor.direction()
-
-    def stop(self):
-        self.running = False
-        self.motor.stop()
 
     def _sorting_loop(self):
 
         while True:
             sleep(20, MSEC)
 
-            # Exit: the lift intake isn't running or the user doesn't want to color sort.
-            if not self.running or not self.sorting_enabled:
+            if not self.sorting_enabled:
                 continue
 
             enemy_donut = self.vision.take_snapshot(self.enemy_sig, 1)
@@ -182,9 +185,6 @@ class LiftIntake:
             # Exit: the donut is too far away (so it appears small)
             if enemy_donut.height < 30 or enemy_donut.width < 70:
                 continue
-            
-            print("Found an enemy donut.")
-            print("Waiting for switch to be hit.")
 
             # Hold on, I found something. Let's wait until the switch is hit.
             while not self.limit_switch.pressing():
@@ -192,12 +192,6 @@ class LiftIntake:
 
                 if not self.sorting_enabled:
                     break
-            
-            print("Switch was hit.")
-
-            # Exit: Driver turned off color sort.
-            if (not self.sorting_enabled):
-                continue
 
             save_direction = lift_intake._get_direction()
 
@@ -268,7 +262,7 @@ wall_stake = WallStake(Motor(Ports.PORT8, GearSetting.RATIO_36_1, True))
 #endregion Parts
 
 # NOTHING TO DO
-def init():
+def driver_init():
     drivetrain.set_drive_velocity(0, PERCENT)
     drivetrain.set_turn_velocity(0, PERCENT)
     
@@ -283,17 +277,20 @@ def init():
     controller.buttonL1.released(lift_intake.stop)
 
     controller.buttonX.pressed(wall_stake.pickup)
-    controller.buttonY.pressed(wall_stake.hold)
-    controller.buttonA.pressed(wall_stake.score)
+    controller.buttonY.pressed(wall_stake.score)
+
+    controller.buttonA.pressed(wall_stake.start)
+    controller.buttonA.released(wall_stake.stop)
+
     controller.buttonB.pressed(wall_stake.reset)
 
     controller.buttonR2.pressed(stake_grabber.toggle)
     controller.buttonR1.pressed(doink_piston.toggle)
 
-    lift_intake.start()
+    lift_intake.init_sorting(True)
 
 def driver():
-    init()
+    driver_init()
     
     while True:
         accel_stick = controller.axis3.position()
@@ -307,6 +304,7 @@ def driver():
 config_auton_direction = LEFT
 
 def auton_quals():
+    lift_intake.init_sorting(True)
     global config_auton_direction
     
     if config_auton_direction == LEFT:
@@ -324,38 +322,38 @@ def auton_quals():
 
         wait(0.5, SECONDS)
 
-        drivetrain.drive_for(FORWARD, 10, INCHES, 90, PERCENT, True)
+        drivetrain.drive_for(FORWARD, 10, INCHES, 90, PERCENT)
 
         drivetrain.turn_for(LEFT, 55, DEGREES, 80, PERCENT)
 
-        drivetrain.drive_for(REVERSE, 55, INCHES, 90, PERCENT, True)
-        drivetrain.drive_for(FORWARD, 5, INCHES, 80, PERCENT, True)
+        drivetrain.drive_for(REVERSE, 55, INCHES, 90, PERCENT)
+        drivetrain.drive_for(FORWARD, 5, INCHES, 80, PERCENT)
         stake_grabber.toggle()
 
         wait(0.2, SECONDS)
 
-        drivetrain.turn_for(RIGHT, 120, DEGREES, 85, PERCENT, True)
+        drivetrain.turn_for(RIGHT, 120, DEGREES, 85, PERCENT)
 
-        lift_intake.start()
+        lift_intake.spin(FORWARD)
 
-        drivetrain.drive_for(FORWARD, 34, INCHES, 90, PERCENT, True)
-        drivetrain.drive_for(REVERSE, 5, INCHES, 80, PERCENT, True)
+        drivetrain.drive_for(FORWARD, 34, INCHES, 90, PERCENT)
+        drivetrain.drive_for(REVERSE, 5, INCHES, 80, PERCENT)
         #after testing, we can add the above two lines again to pick up a third donut onto the stake
 
         drivetrain.turn_for(RIGHT, 90, DEGREES, 80, PERCENT)
 
-        drivetrain.drive_for(FORWARD, 30, INCHES, 90, PERCENT, True)
-        drivetrain.drive_for(REVERSE, 5, INCHES, 80, PERCENT, True)
+        drivetrain.drive_for(FORWARD, 30, INCHES, 90, PERCENT)
+        drivetrain.drive_for(REVERSE, 5, INCHES, 80, PERCENT)
 
         #check the time - if we don't have much time left, then just hit ladder
-        drivetrain.turn_for(RIGHT, 90, DEGREES, 85, PERCENT, True)
+        drivetrain.turn_for(RIGHT, 90, DEGREES, 85, PERCENT)
         drivetrain.drive_for(FORWARD, 60, INCHES, 90, PERCENT)
 
         #check the time - if we have time left, then the following code will apply
 
-        #drivetrain.turn_for(LEFT, 90, DEGREES, 75, PERCENT, True)
+        #drivetrain.turn_for(LEFT, 90, DEGREES, 75, PERCENT)
 
-        #drivetrain.drive_for(FORWARD, 51, INCHES, 90, PERCENT, True)
+        #drivetrain.drive_for(FORWARD, 51, INCHES, 90, PERCENT)
         
         #doink_piston.toggle()
         #drivetrain.drive_for(FORWARD, 10, INCHES, 80, PERCENT)
@@ -363,31 +361,31 @@ def auton_quals():
 
     elif config_auton_direction == RIGHT:
         #ts for goal rush
-        drivetrain.drive_for(REVERSE, 40, INCHES, 85, PERCENT, True)
+        drivetrain.drive_for(REVERSE, 40, INCHES, 85, PERCENT)
         drivetrain.drive_for(REVERSE, 5, INCHES, 85, PERCENT)
         stake_grabber.toggle()
 
         wait(0.3, SECONDS)
         #score the preload
-        lift_intake.motor.spin_for(REVERSE, 2, TURNS, True)
+        lift_intake.motor.spin_for(REVERSE, 2, TURNS)
         lift_intake.motor.spin_for(REVERSE, 1, TURNS)
-        drivetrain.turn_for(LEFT, 90, DEGREES, 80, PERCENT, True)
+        drivetrain.turn_for(LEFT, 90, DEGREES, 80, PERCENT)
 
-        lift_intake.start()
+        lift_intake.spin(FORWARD)
 
-        drivetrain.drive_for(FORWARD, 35, INCHES, 90, PERCENT, True)
+        drivetrain.drive_for(FORWARD, 35, INCHES, 90, PERCENT)
         wait(0.5, SECONDS)
-        drivetrain.drive_for(REVERSE, 5, INCHES, 80, PERCENT, True)
+        drivetrain.drive_for(REVERSE, 5, INCHES, 80, PERCENT)
 
-        drivetrain.turn_for(RIGHT, 90, DEGREES, 85, PERCENT, True)
-        drivetrain.drive_for(FORWARD, 12, INCHES, 90, PERCENT, True)
+        drivetrain.turn_for(RIGHT, 90, DEGREES, 85, PERCENT)
+        drivetrain.drive_for(FORWARD, 12, INCHES, 90, PERCENT)
 
-        drivetrain.turn_for(LEFT, 90, DEGREES, 85, PERCENT, True)
-        drivetrain.drive_for(FORWARD, 18, INCHES, 90, PERCENT, True)
+        drivetrain.turn_for(LEFT, 90, DEGREES, 85, PERCENT)
+        drivetrain.drive_for(FORWARD, 18, INCHES, 90, PERCENT)
 
-        drivetrain.turn_for(RIGHT, 90, DEGREES, 85, PERCENT, True)
+        drivetrain.turn_for(RIGHT, 90, DEGREES, 85, PERCENT)
 
-        drivetrain.drive_for(FORWARD, 60, INCHES, 90, PERCENT, True)
+        drivetrain.drive_for(FORWARD, 60, INCHES, 90, PERCENT)
         
         #clear corner
         doink_piston.toggle()
@@ -398,40 +396,42 @@ def auton_quals():
 
 
 def auton_elims():
+    lift_intake.init_sorting(True)
     global config_auton_direction
 
     if config_auton_direction == LEFT:
         #its ring rush time
         #without alliance stake
-        drivetrain.drive_for(REVERSE, 40, INCHES, 85, PERCENT, True)
+        drivetrain.drive_for(REVERSE, 40, INCHES, 85, PERCENT)
         drivetrain.drive_for(REVERSE, 5, INCHES, 85, PERCENT)
         stake_grabber.toggle()
 
         wait(0.3, SECONDS)
         #score the preload
-        lift_intake.motor.spin_for(REVERSE, 2, TURNS, True)
+        lift_intake.motor.spin_for(REVERSE, 2, TURNS)
         lift_intake.motor.spin_for(REVERSE, 1, TURNS)
-        drivetrain.turn_for(RIGHT, 90, DEGREES, 80, PERCENT, True)
+        drivetrain.turn_for(RIGHT, 90, DEGREES, 80, PERCENT)
 
-        lift_intake.start()
-        drivetrain.drive_for(FORWARD, 20, INCHES, True)
-        drivetrain.drive_for(REVERSE, 4, INCHES, True)
+        lift_intake.spin(FORWARD)
 
-        drivetrain.turn_for(RIGHT, 90, DEGREES, 85, PERCENT, True)
+        drivetrain.drive_for(FORWARD, 20, INCHES)
+        drivetrain.drive_for(REVERSE, 4, INCHES)
+
+        drivetrain.turn_for(RIGHT, 90, DEGREES, 85, PERCENT)
         #"thrust" the donuts
-        drivetrain.drive_for(FORWARD, 18, INCHES, 85, PERCENT, True)
-        drivetrain.drive_for(REVERSE, 7, INCHES, 85, PERCENT, True)
-        drivetrain.turn_for(LEFT, 90, DEGREES, 85, PERCENT, True)
-        drivetrain.drive_for(FORWARD, 8, INCHES, 85, PERCENT, True)
-        drivetrain.turn_for(RIGHT, 90, DEGREES, 85, PERCENT, True)
-        drivetrain.drive_for(FORWARD, 8, INCHES, 80, PERCENT, True)
-        drivetrain.drive_for(REVERSE, 8, INCHES, 85, PERCENT, True)
+        drivetrain.drive_for(FORWARD, 18, INCHES, 85, PERCENT)
+        drivetrain.drive_for(REVERSE, 7, INCHES, 85, PERCENT)
+        drivetrain.turn_for(LEFT, 90, DEGREES, 85, PERCENT)
+        drivetrain.drive_for(FORWARD, 8, INCHES, 85, PERCENT)
+        drivetrain.turn_for(RIGHT, 90, DEGREES, 85, PERCENT)
+        drivetrain.drive_for(FORWARD, 8, INCHES, 80, PERCENT)
+        drivetrain.drive_for(REVERSE, 8, INCHES, 85, PERCENT)
 
-        drivetrain.turn_for(LEFT, 90, DEGREES, 75, PERCENT, True)
-        drivetrain.drive_for(FORWARD, 14, INCHES, 90, PERCENT, True)
-        drivetrain.turn_for(LEFT, 90, DEGREES, 85, PERCENT, True)
+        drivetrain.turn_for(LEFT, 90, DEGREES, 75, PERCENT)
+        drivetrain.drive_for(FORWARD, 14, INCHES, 90, PERCENT)
+        drivetrain.turn_for(LEFT, 90, DEGREES, 85, PERCENT)
 
-        drivetrain.drive_for(FORWARD, 51, INCHES, 90, PERCENT, True)
+        drivetrain.drive_for(FORWARD, 51, INCHES, 90, PERCENT)
         
         doink_piston.toggle()
         drivetrain.drive_for(FORWARD, 10, INCHES, 80, PERCENT)
@@ -439,31 +439,31 @@ def auton_elims():
         
     elif config_auton_direction == RIGHT:
         #ts for goal rush again
-        drivetrain.drive_for(REVERSE, 40, INCHES, 85, PERCENT, True)
+        drivetrain.drive_for(REVERSE, 40, INCHES, 85, PERCENT)
         drivetrain.drive_for(REVERSE, 5, INCHES, 85, PERCENT)
         stake_grabber.toggle()
 
         wait(0.3, SECONDS)
         #score the preload
-        lift_intake.motor.spin_for(REVERSE, 2, TURNS, True)
+        lift_intake.motor.spin_for(REVERSE, 2, TURNS)
         lift_intake.motor.spin_for(REVERSE, 1, TURNS)
-        drivetrain.turn_for(LEFT, 90, DEGREES, 80, PERCENT, True)
+        drivetrain.turn_for(LEFT, 90, DEGREES, 80, PERCENT)
 
-        lift_intake.start()
+        lift_intake.spin(FORWARD)
 
-        drivetrain.drive_for(FORWARD, 35, INCHES, 90, PERCENT, True)
+        drivetrain.drive_for(FORWARD, 35, INCHES, 90, PERCENT)
         wait(0.5, SECONDS)
-        drivetrain.drive_for(REVERSE, 5, INCHES, 80, PERCENT, True)
+        drivetrain.drive_for(REVERSE, 5, INCHES, 80, PERCENT)
 
-        drivetrain.turn_for(RIGHT, 90, DEGREES, 85, PERCENT, True)
-        drivetrain.drive_for(FORWARD, 12, INCHES, 90, PERCENT, True)
+        drivetrain.turn_for(RIGHT, 90, DEGREES, 85, PERCENT)
+        drivetrain.drive_for(FORWARD, 12, INCHES, 90, PERCENT)
 
-        drivetrain.turn_for(LEFT, 90, DEGREES, 85, PERCENT, True)
-        drivetrain.drive_for(FORWARD, 18, INCHES, 90, PERCENT, True)
+        drivetrain.turn_for(LEFT, 90, DEGREES, 85, PERCENT)
+        drivetrain.drive_for(FORWARD, 18, INCHES, 90, PERCENT)
 
-        drivetrain.turn_for(RIGHT, 90, DEGREES, 85, PERCENT, True)
+        drivetrain.turn_for(RIGHT, 90, DEGREES, 85, PERCENT)
 
-        drivetrain.drive_for(FORWARD, 60, INCHES, 90, PERCENT, True)
+        drivetrain.drive_for(FORWARD, 60, INCHES, 90, PERCENT)
         
         #clear corner
         doink_piston.toggle()
