@@ -133,7 +133,7 @@ class WallStake:
         Thread(self.print_pos)
 
     def pickup(self):
-        self.motor.spin_to_position(26, DEGREES, 70, PERCENT)
+        self.motor.spin_to_position(20, DEGREES, 70, PERCENT)
             
     def start(self):
         self.motor.spin(FORWARD, 70, PERCENT)
@@ -184,6 +184,10 @@ class LiftIntake:
     
     def _get_direction(self):
         return self.motor.direction()
+
+    def helper_function(self):
+        while True:
+            if 
 
     def _sorting_loop(self):
 
@@ -295,13 +299,13 @@ def driver_init():
     controller.buttonL1.released(lift_intake.stop)
 
     controller.buttonX.pressed(wall_stake.pickup)
-    controller.buttonY.pressed(wall_stake.reset)
+    controller.buttonB.pressed(wall_stake.reset)
 
     controller.buttonA.pressed(wall_stake.start)
     controller.buttonA.released(wall_stake.stop)
 
-    controller.buttonB.pressed(wall_stake.reverse)
-    controller.buttonB.released(wall_stake.stop)
+    controller.buttonY.pressed(wall_stake.reverse)
+    controller.buttonY.released(wall_stake.stop)
 
     controller.buttonR2.pressed(stake_grabber.toggle)
     controller.buttonR1.pressed(doink_piston.toggle)
