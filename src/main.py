@@ -218,7 +218,6 @@ class LiftIntake:
             save_direction = self._get_direction()
 
             print("I think donut got to top")
-            wait(25, MSEC)
             self.spin(REVERSE)
             print("I went backwards!")
             wait(1300, MSEC)
