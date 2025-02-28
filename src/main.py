@@ -152,6 +152,15 @@ class WallStake:
 
 # TODO: Clean up the starting and stopping of the loop.
 # TODO: Debug why it doesn't reverse.
+
+# Notes
+
+# 4 possible places where color sort is failing (X means this reason is crossed out)
+# 1: not detecting enemy signature properly (most likely)
+# 2: logic for limit switch is off 
+# 3: the loop isn't reset, as in once an enemy donut is detected
+# 4: driver input might be interfering with it 
+
 class LiftIntake:
     def __init__(self, motor: Motor, vision: Vision, limit_switch: Limit):
         self.motor = motor
@@ -185,46 +194,51 @@ class LiftIntake:
     def _get_direction(self):
         return self.motor.direction()
 
-    def helper_function(self):
-        while True:
-            if 
-
     def _sorting_loop(self):
 
         while True:
             sleep(20, MSEC)
 
+
             if not self.sorting_enabled:
                 continue
 
-            enemy_donut = self.vision.take_snapshot(self.enemy_sig, 1)
+            elif self.sorting_enabled:
+                enemy_donut = self.vision.take_snapshot(self.enemy_sig)
 
-            if enemy_donut:
-                enemy_donut = enemy_donut[0]
-            else:
-                continue
+                if enemy_donut:
+                    enemy_donut = enemy_donut[0]
+                else:
+                    continue
 
-            # Exit: the donut is too far away (so it appears small)
-            if enemy_donut.height < 30 or enemy_donut.width < 70:
-                continue
+                # Exit: the donut is too far away (so it appears small)
+                if enemy_donut.height < 30 or enemy_donut.width < 70:
+                    continue
 
-            # Hold on, I found something. Let's wait until the switch is hit.
-            while not self.limit_switch.pressing():
-                wait(15)
+                # Hold on, I found something. Let's wait until the switch is hit.
 
-                if not self.sorting_enabled:
-                    break
+                elif enemy_donut.height > 30 or enemy_donut.width > 70:
 
-            save_direction = self._get_direction()
+                    while not self.limit_switch.pressing():
+                        wait(15)
 
-            print("I think donut got to top")
-            self.spin(REVERSE)
-            print("I went backwards!")
-            wait(1300, MSEC)
-            print("Done")
-            print("")
+                        if not self.sorting_enabled:
+                            break
 
-            self.spin(save_direction)
+                        if self.limit_switch.pressing():
+                            save_direction = self._get_direction()
+
+                            print("I think donut got to top")
+                            self.spin(REVERSE)
+                            #it might actually be 
+                            #self.spin(FORWARD)
+                            #we shall see
+                            print("I went backwards!")
+                            wait(500, MSEC)
+                            print("Done")
+                            print("")
+
+                            self.spin(save_direction)
 
 # COMPLETED
 class DigitalOutToggleable(DigitalOut):
@@ -283,7 +297,9 @@ wall_stake = WallStake(Motor(Ports.PORT8, GearSetting.RATIO_36_1, False), Rotati
 
 # NOTHING TO DO
 def driver_init():
-    drivetrain.calibrate()
+
+    #drivetrain.calibrate() doesn't exist
+    #drivetrain.calibrate()
     drivetrain.set_drive_velocity(0, PERCENT)
     drivetrain.set_turn_velocity(0, PERCENT)
     
@@ -562,4 +578,5 @@ if __name__ == "__main__":
     main()    
 
 
+        
         
