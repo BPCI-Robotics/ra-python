@@ -133,7 +133,7 @@ class WallStake:
         Thread(self.print_pos)
 
     def pickup(self):
-        self.motor.spin_to_position(20, DEGREES, 70, PERCENT)
+        self.motor.spin_to_position(25, DEGREES, 70, PERCENT)
             
     def start(self):
         self.motor.spin(FORWARD, 70, PERCENT)
@@ -145,10 +145,10 @@ class WallStake:
         self.motor.stop()
         
     def score(self):
-        self.motor.spin_to_position(300, DEGREES, 40, PERCENT)
+        self.motor.spin_to_position(300, DEGREES, 60, PERCENT)
 
     def reset(self):
-        self.motor.spin_to_position(0, DEGREES, 70, PERCENT)
+        self.motor.spin_to_position(0, DEGREES, 60, PERCENT)
 
 # TODO: Clean up the starting and stopping of the loop.
 # TODO: Debug why it doesn't reverse.
@@ -176,12 +176,6 @@ class LiftIntake:
         Thread(self._sorting_loop)
         self.sorting_enabled = state
     
-    def start_sorting(self):
-        self.sorting_enabled = True
-    
-    def stop_sorting(self):
-        self.sorting_enabled = False
-    
     def set_enemy_sig(self, sig: Signature):
         self.enemy_sig = sig
 
@@ -203,42 +197,44 @@ class LiftIntake:
             if not self.sorting_enabled:
                 continue
 
-            elif self.sorting_enabled:
-                enemy_donut = self.vision.take_snapshot(self.enemy_sig)
+            enemy_donut = self.vision.take_snapshot(self.enemy_sig, 1)
 
-                if enemy_donut:
-                    enemy_donut = enemy_donut[0]
-                else:
-                    continue
+            if enemy_donut:
+                enemy_donut = enemy_donut[0]
+            else:
+                continue
 
-                # Exit: the donut is too far away (so it appears small)
-                if enemy_donut.height < 30 or enemy_donut.width < 70:
-                    continue
+            # Exit: the donut is too far away (so it appears small)
+            if enemy_donut.height < 50 or enemy_donut.width < 50:
+                continue
 
-                # Hold on, I found something. Let's wait until the switch is hit.
+            # Hold on, I found something. Let's wait until the switch is hit.
 
-                elif enemy_donut.height > 30 or enemy_donut.width > 70:
+            motor_position_initial = lift_intake.motor.position(DEGREES)
 
-                    while not self.limit_switch.pressing():
-                        wait(15)
+            while lift_intake.motor.position(DEGREES) < (motor_position_initial + 200):
+                wait(20, MSEC)
 
-                        if not self.sorting_enabled:
-                            break
+            if not self.sorting_enabled:
+                break
+            
+            if lift_intake.motor.position(DEGREES) >= (motor_position_initial + 200):
+                save_direction = self._get_direction()
+                
+                wait(15, MSEC)
+                brain.screen.clear_screen()
+                brain.screen.print("I think donut got to top")
+                self.stop()
+                self.spin(REVERSE)
+                #it might actually be 
+                #self.spin(FORWARD)
+                #we shall see
+                brain.screen.print("I went backwards!")
+                wait(500, MSEC)
+                brain.screen.print("Done")
+                brain.screen.print("")
 
-                        if self.limit_switch.pressing():
-                            save_direction = self._get_direction()
-
-                            print("I think donut got to top")
-                            self.spin(REVERSE)
-                            #it might actually be 
-                            #self.spin(FORWARD)
-                            #we shall see
-                            print("I went backwards!")
-                            wait(500, MSEC)
-                            print("Done")
-                            print("")
-
-                            self.spin(save_direction)
+                self.spin(save_direction)
 
 # COMPLETED
 class DigitalOutToggleable(DigitalOut):
@@ -316,11 +312,11 @@ def driver_init():
     controller.buttonX.pressed(wall_stake.pickup)
     controller.buttonB.pressed(wall_stake.reset)
 
-    controller.buttonA.pressed(wall_stake.start)
-    controller.buttonA.released(wall_stake.stop)
-
-    controller.buttonY.pressed(wall_stake.reverse)
+    controller.buttonY.pressed(wall_stake.start)
     controller.buttonY.released(wall_stake.stop)
+
+    controller.buttonA.pressed(wall_stake.reverse)
+    controller.buttonA.released(wall_stake.stop)
 
     controller.buttonR2.pressed(stake_grabber.toggle)
     controller.buttonR1.pressed(doink_piston.toggle)
@@ -513,7 +509,7 @@ def auton_elims():
 
 def auton_skills():
     #routine plan
-    #no color sorting involved btw
+
     pass
 
 def start(config: dict[str, Any]):
