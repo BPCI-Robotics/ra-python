@@ -118,9 +118,21 @@ class WallStake:
         self.rotation = rotation
 
         self.motor.set_stopping(HOLD)
+        self.init()
+
+    def spin_to(self, target, unit):
+
+        while abs(target - self.rotation.position(unit)) > 10:
+            if target > self.rotation.position(unit):
+                self.motor.spin(FORWARD, 60, PERCENT)
+            
+            if target < self.rotation.position(unit):
+                self.motor.spin(REVERSE, 60, PERCENT)
+        
+        self.motor.stop()
     
     def init(self):
-        self.spin(REVERSE)
+        self.spin(REVERSE) 
         wait(800, MSEC)
         self.rotation.reset_position()
         self.stop()
@@ -138,19 +150,19 @@ class WallStake:
         Thread(self.print_pos)
 
     def pickup(self):
-        self.motor.spin_to_position(25, DEGREES, 70, PERCENT)
+        self.spin_to(37, DEGREES)
+
+    def score(self):
+        self.spin_to(192.48, DEGREES)
+
+    def reset(self):
+        self.spin_to(0, DEGREES)
             
     def spin(self, direction):
-        self.motor.spin(direction, 70, PERCENT)
+        self.motor.spin(direction, 60, PERCENT)
 
     def stop(self):
         self.motor.stop()
-        
-    def score(self):
-        self.motor.spin_to_position(300, DEGREES, 60, PERCENT)
-
-    def reset(self):
-        self.motor.spin_to_position(0, DEGREES, 60, PERCENT)
 
 # TODO: Clean up the starting and stopping of the loop.
 # TODO: Debug why it doesn't reverse.
@@ -167,14 +179,9 @@ class LiftIntake:
     def __init__(self, motor: Motor, vision: Vision):
         self.motor = motor
         self.vision = vision
-
-        self.sorting_enabled = False
         self.enemy_sig = None
 
         self.motor.set_stopping(BRAKE)
-    
-    def init(self):
-        Thread(self._sorting_loop)
     
     def set_enemy_sig(self, enemy_sig):
         self.enemy_sig = enemy_sig
@@ -184,34 +191,6 @@ class LiftIntake:
 
     def stop(self):
         self.motor.stop()
-
-    def _sorting_loop(self):
-
-        while True:
-            sleep(45, MSEC)
-
-            enemy_donut = self.vision.take_snapshot(self.enemy_sig, 1)
-
-            if not enemy_donut:
-                continue
-
-            # Exit: the donut is too far away (so it appears small)
-            if enemy_donut[0].height < 50 or enemy_donut[0].width < 50:
-                continue
-
-            motor_position_initial = lift_intake.motor.position(DEGREES)
-
-            while lift_intake.motor.position(DEGREES) < (motor_position_initial + 200):
-                wait(20, MSEC)
-            
-            save_direction = self.motor.direction()
-            
-            wait(15, MSEC)
-            self.stop()
-            self.spin(REVERSE)
-            wait(500, MSEC)
-
-            self.spin(save_direction)
 
 # COMPLETED
 class DigitalOutToggleable(DigitalOut):
@@ -229,19 +208,15 @@ class Auton:
         self.direction = LEFT
         self._routine_selected = self._quals
 
+    def _noop(self):
+        pass
+
     def _quals(self):
         if self.direction == LEFT:
             #run ring rush with alliance stake scoring
-
-            drivetrain.drive_for(FORWARD, 25, INCHES, 80, PERCENT, True)
-            drivetrain.turn_for(LEFT, 90, DEGREES, 75, PERCENT, True)
+            drivetrain.drive_for(FORWARD, 50, INCHES, 60, PERCENT, wait=True)
             drivetrain.drive_for(FORWARD, 2, INCHES, 60, PERCENT, True)
             #drivetrain.drive_for
-
-            #give some time to stabilize
-            wait(0.2, SECONDS)
-
-            wall_stake.score()
 
             wait(1, SECONDS)
 
@@ -321,22 +296,24 @@ class Auton:
         if self.direction == LEFT:
             #its ring rush time
             #without alliance stake
-            drivetrain.drive_for(REVERSE, 40, INCHES, 85, PERCENT)
+            drivetrain.drive_for(REVERSE, 60, INCHES, 85, PERCENT, wait=True)
             drivetrain.drive_for(REVERSE, 5, INCHES, 85, PERCENT)
             stake_grabber.toggle()
 
             wait(0.3, SECONDS)
             #score the preload
-            lift_intake.motor.spin_for(REVERSE, 2, TURNS)
-            lift_intake.motor.spin_for(REVERSE, 1, TURNS)
-            drivetrain.turn_for(RIGHT, 90, DEGREES, 80, PERCENT)
+            lift_intake.motor.spin_for(REVERSE, 3, TURNS, 100, PERCENT, wait=True)
+            lift_intake.motor.spin_for(REVERSE, 1, TURNS, 100, PERCENT)
+            drivetrain.turn_for(LEFT, 105, DEGREES, 80, PERCENT)
 
-            lift_intake.spin(FORWARD)
+            lift_intake.motor.spin(REVERSE, 100, PERCENT)
 
-            drivetrain.drive_for(FORWARD, 20, INCHES)
-            drivetrain.drive_for(REVERSE, 4, INCHES)
+            drivetrain.drive_for(FORWARD, 41, INCHES, 90, PERCENT, wait=True)
+            drivetrain.drive_for(REVERSE, 5, INCHES, 90, PERCENT, wait=True)
 
-            drivetrain.turn_for(RIGHT, 90, DEGREES, 85, PERCENT)
+            drivetrain.turn_for(LEFT, 105, DEGREES, 85, PERCENT)
+
+            """
             #"thrust" the donuts
             drivetrain.drive_for(FORWARD, 18, INCHES, 85, PERCENT)
             drivetrain.drive_for(REVERSE, 7, INCHES, 85, PERCENT)
@@ -387,7 +364,7 @@ class Auton:
             #clear corner
             doink_piston.toggle()
             drivetrain.drive_for(FORWARD, 10, INCHES, 80, PERCENT)
-            drivetrain.turn_for(RIGHT, 70, DEGREES, 90, PERCENT)
+            drivetrain.turn_for(RIGHT, 70, DEGREES, 90, PERCENT)"""
 
     def _skills(self):
         #routine plan
@@ -417,7 +394,6 @@ class Auton:
             self._routine_selected = self._elims
 
     def __call__(self):
-        lift_intake.init()
         wall_stake.start_log()
 
         self._routine_selected()
@@ -459,7 +435,7 @@ lift_intake = LiftIntake(
     Vision(Ports.PORT9, 50, BLUE_SIG, RED_SIG), 
 )
 
-wall_stake = WallStake(Motor(Ports.PORT8, GearSetting.RATIO_36_1, False), Rotation(Ports.PORT11))
+wall_stake = WallStake(Motor(Ports.PORT8, GearSetting.RATIO_36_1, True), Rotation(Ports.PORT11))
 
 #endregion Parts
 
@@ -469,7 +445,6 @@ def initialize():
     menu.add_option("Team color", Color.RED, ["Red", "Blue"])
     menu.add_option("Auton direction", Color.BLUE, ["Left", "Right"])
     menu.add_option("Auton type", Color.PURPLE, ["Quals", "Elims", "Skills"])
-    menu.add_option("Testing", Color.CYAN, ["Driver Control", "Auton"])
 
     menu.on_enter(auton.set_config)
     
@@ -478,7 +453,6 @@ def initialize():
     controller.buttonLeft.pressed(menu.force_submit)
 
 def driver():
-    lift_intake.init()
     wall_stake.start_log()
 
     drivetrain.set_drive_velocity(0, PERCENT)
@@ -497,10 +471,10 @@ def driver():
     controller.buttonX.pressed(wall_stake.pickup)
     controller.buttonB.pressed(wall_stake.reset)
 
-    controller.buttonY.pressed(wall_stake.start)
+    controller.buttonY.pressed(wall_stake.spin, (REVERSE,))
     controller.buttonY.released(wall_stake.stop)
 
-    controller.buttonA.pressed(wall_stake.reverse)
+    controller.buttonA.pressed(wall_stake.spin, (FORWARD,))
     controller.buttonA.released(wall_stake.stop)
 
     controller.buttonR2.pressed(stake_grabber.toggle)
@@ -510,8 +484,8 @@ def driver():
         accel_stick = controller.axis3.position()
         turn_stick = controller.axis1.position()
 
-        drivetrain.lm.spin(FORWARD, accel_stick - turn_stick, PERCENT)
-        drivetrain.rm.spin(FORWARD, accel_stick + turn_stick, PERCENT)
+        drivetrain.lm.set_velocity(accel_stick - turn_stick, PERCENT)
+        drivetrain.rm.set_velocity(accel_stick + turn_stick, PERCENT)
 
         wait(1 / 60, SECONDS)
 
