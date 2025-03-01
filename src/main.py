@@ -122,7 +122,7 @@ class WallStake:
 
     def spin_to(self, target, unit):
 
-        while abs(target - self.rotation.position(unit)) > 10:
+        while abs(target - self.rotation.position(unit)) > 4:
             if target > self.rotation.position(unit):
                 self.motor.spin(FORWARD, 60, PERCENT)
             
@@ -142,15 +142,17 @@ class WallStake:
             wait(200, MSEC)
             brain.screen.clear_screen()
             brain.screen.set_cursor(1, 1)
-            brain.screen.print("Sensor:", self.rotation.position(DEGREES))
+            brain.screen.print("Intake temp:", lift_intake.motor.temperature())
             brain.screen.set_cursor(2, 1)
-            brain.screen.print("Motor:", self.motor.position(DEGREES))
+            brain.screen.print("Wall stake temp:", wall_stake.motor.temperature())
+            brain.screen.set_cursor(3, 1)
+            brain.screen.print("Drivetrain temp:", drivetrain.temperature())
 
     def start_log(self):
         Thread(self.print_pos)
 
     def pickup(self):
-        self.spin_to(37, DEGREES)
+        self.spin_to(36, DEGREES)
 
     def score(self):
         self.spin_to(192.48, DEGREES)
@@ -302,16 +304,29 @@ class Auton:
 
             wait(0.3, SECONDS)
             #score the preload
-            lift_intake.motor.spin_for(REVERSE, 3, TURNS, 100, PERCENT, wait=True)
+            lift_intake.motor.spin_for(REVERSE, 3, TURNS, 100, PERCENT)
             lift_intake.motor.spin_for(REVERSE, 1, TURNS, 100, PERCENT)
-            drivetrain.turn_for(LEFT, 105, DEGREES, 80, PERCENT)
+
+            drivetrain.turn_for(RIGHT, 105, DEGREES, 80, PERCENT)
 
             lift_intake.motor.spin(REVERSE, 100, PERCENT)
 
             drivetrain.drive_for(FORWARD, 41, INCHES, 90, PERCENT, wait=True)
             drivetrain.drive_for(REVERSE, 5, INCHES, 90, PERCENT, wait=True)
 
-            drivetrain.turn_for(LEFT, 105, DEGREES, 85, PERCENT)
+            drivetrain.turn_for(RIGHT, 63, DEGREES, 85, PERCENT, wait=True)
+
+            #just to make sure
+            lift_intake.motor.spin(REVERSE, 100, PERCENT)
+
+            drivetrain.drive_for(FORWARD, 46, INCHES, 90, PERCENT, wait=True)
+            drivetrain.drive_for(FORWARD, 7, INCHES, 80, PERCENT, wait=True)
+            drivetrain.drive_for(REVERSE, 6, INCHES, 90, PERCENT)
+
+            drivetrain.turn_for(LEFT, 62, DEGREES, 85, PERCENT, wait=True)
+            drivetrain.drive_for(FORWARD, 18, INCHES, 80, PERCENT, wait=True)
+            drivetrain.drive_for(REVERSE, 5, INCHES, 85, PERCENT)
+
 
             """
             #"thrust" the donuts
@@ -368,8 +383,10 @@ class Auton:
 
     def _skills(self):
         #routine plan
+        #autonomous 
 
-        pass
+        wall_stake.score()
+        
     
     def set_config(self, config: dict[str, Any]):
         print(config)
