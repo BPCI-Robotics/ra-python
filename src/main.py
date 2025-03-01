@@ -459,12 +459,22 @@ lift_intake = LiftIntake(
 
 wall_stake = WallStake(Motor(Ports.PORT8, GearSetting.RATIO_36_1, False), Rotation(Ports.PORT11))
 
-auton = Auton()
-menu = SelectionMenu()
-
 #endregion Parts
 
-# NOTHING TO DO
+def initialize():
+    menu = SelectionMenu()
+
+    menu.add_option("Team color", Color.RED, ["Red", "Blue"])
+    menu.add_option("Auton direction", Color.BLUE, ["Left", "Right"])
+    menu.add_option("Auton type", Color.PURPLE, ["Quals", "Elims", "Skills"])
+    menu.add_option("Testing", Color.CYAN, ["Driver Control", "Auton"])
+
+    menu.on_enter(auton.set_config)
+    
+    menu.draw()
+    print("\033[2J")
+    controller.buttonLeft.pressed(menu.force_submit)
+
 def driver():
     lift_intake.init()
     wall_stake.start_log()
@@ -503,18 +513,7 @@ def driver():
 
         wait(1 / 60, SECONDS)
 
-
-def initialize():
-    menu.add_option("Team color", Color.RED, ["Red", "Blue"])
-    menu.add_option("Auton direction", Color.BLUE, ["Left", "Right"])
-    menu.add_option("Auton type", Color.PURPLE, ["Quals", "Elims", "Skills"])
-    menu.add_option("Testing", Color.CYAN, ["Driver Control", "Auton"])
-
-    menu.on_enter(auton.set_config)
-    
-    menu.draw()
-    print("\033[2J")
-    controller.buttonLeft.pressed(menu.force_submit)
+auton = Auton()
 
 Competition(driver, auton)
 initialize()
