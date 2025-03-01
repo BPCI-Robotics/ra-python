@@ -112,7 +112,6 @@ class SelectionMenu:
             )
             i += 1
 
-# TODO: Add support for the rotation encoder we just added (port 11 likely).
 class WallStake:
     def __init__(self, motor: Motor, rotation: Rotation):
         self.motor = motor
@@ -120,6 +119,12 @@ class WallStake:
 
         self.motor.set_stopping(HOLD)
     
+    def init(self):
+        self.spin(REVERSE)
+        wait(800, MSEC)
+        self.rotation.reset_position()
+        self.stop()
+
     def print_pos(self):
         while True:
             wait(200, MSEC)
@@ -135,11 +140,8 @@ class WallStake:
     def pickup(self):
         self.motor.spin_to_position(25, DEGREES, 70, PERCENT)
             
-    def start(self):
-        self.motor.spin(FORWARD, 70, PERCENT)
-
-    def reverse(self):
-        self.motor.spin(REVERSE, 70, PERCENT)
+    def spin(self, direction):
+        self.motor.spin(direction, 70, PERCENT)
 
     def stop(self):
         self.motor.stop()
