@@ -334,9 +334,6 @@ class Auton:
             lift_intake.motor.stop(BRAKE)
 
            # smash into ladder time 
-            drivetrain.turn_for(RIGHT, 50, DEGREES, 85, PERCENT, wait=True)
-            drivetrain.drive_for(FORWARD, 56, INCHES, 95, PERCENT)
-
         elif self.color == BLUE_SIG:
             #its ring rush time
             #BLUE 
@@ -445,7 +442,7 @@ class Auton:
 
             
 
-    """def _skills(self):
+    def _skills(self):
         #routine plan
         wall_stake.score()
 
@@ -484,7 +481,7 @@ class Auton:
     def __call__(self):
         wall_stake.start_log()
 
-        self._routine_selected()"""
+        self._routine_selected()
 
 #region Parts
 BLUE_SIG = Signature(1, -4645, -3641, -4143,4431, 9695, 7063, 2.5, 0)
