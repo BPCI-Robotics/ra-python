@@ -333,7 +333,8 @@ class Auton:
                 drivetrain.drive_for(REVERSE, 5, INCHES, 85, PERCENT, wait=True)
 
                 drivetrain.stop()
-                lift_intake.motor.stop(BRAKE)
+                
+                wait(4, SECONDS)
 
             elif self.mode == "Goal":
                 #its goal rush time
@@ -483,19 +484,74 @@ class Auton:
             
 
     def _skills(self):
-        #routine plan
-        wall_stake.score()
+        #which direction?
+        drivetrain.drive_for(REVERSE, 62, INCHES, 95, PERCENT, wait=True)
+        drivetrain.drive_for(REVERSE, 3, INCHES, 95, PERCENT, wait=False)
+        stake_grabber.toggle()
 
-        wait(2.3, SECONDS)
+        wait(0.2, SECONDS)
+        #score the preload
+        lift_intake.motor.spin_for(REVERSE, 3, TURNS, 100, PERCENT)
+        lift_intake.motor.spin_for(REVERSE, 1, TURNS, 100, PERCENT)
 
-        drivetrain.drive_for(FORWARD, 62, INCHES)
+        drivetrain.turn_for(LEFT, 210, DEGREES, 90, PERCENT)
 
+        lift_intake.motor.spin(REVERSE, 100, PERCENT, wait=False)
 
-        #autonomous 
+        drivetrain.drive_for(FORWARD, 60, INCHES, 95, PERCENT, wait=True)
+        wait(0.7, SECONDS)
+ 
+        drivetrain.turn_for(LEFT, 105, DEGREES, 90, PERCENT, wait=True)
 
-        wall_stake.score()
+        #just to make sure that the lift intake spins properly
+        lift_intake.motor.spin(REVERSE, 100, PERCENT, wait=False)
+
+        drivetrain.drive_for(FORWARD, 60, INCHES, 95, PERCENT, wait=True)
+        wait(0.7, SECONDS)
+
+        drivetrain.turn_for(LEFT, 105, DEGREES, 90, PERCENT, wait=True)
+
+        lift_intake.motor.spin(REVERSE, 100, PERCENT)
+
+        drivetrain.drive_for(FORWARD, 78, INCHES, 95, PERCENT, wait=True)
+        wait(0.3, SECONDS)
+
+        drivetrain.turn_for(LEFT, 305, DEGREES, 90, PERCENT, wait=True)
+        drivetrain.drive_for(REVERSE, 60, INCHES, wait=True)
+
+        #ungrab the stake to put into corner
+        stake_grabber.toggle()
+        wait(0.8, SECONDS)
+
+        drivetrain.drive_for(FORWARD, 60, INCHES, 95, PERCENT, wait=True)
+
+        drivetrain.turn_for(RIGHT, 60, DEGREES, 90, PERCENT, wait=True)
+
+        drivetrain.drive_for(REVERSE, 120, INCHES, 95, PERCENT, wait = True)
+        drivetrain.drive_for(REVERSE, 5, INCHES, 95, PERCENT, wait=False)
         
-    
+        #to grab second mobile goal
+        stake_grabber.toggle()
+        
+        wait(0.8, SECONDS)
+
+        drivetrain.drive_for(FORWARD, 60, INCHES, 95, PERCENT)
+        drivetrain.turn_for(RIGHT, 158, DEGREES, 90, PERCENT, wait=True)
+
+        drivetrain.drive_for(FORWARD, 87, INCHES, 95, PERCENT)
+        drivetrain.turn_for(RIGHT, 50, DEGREES, 90, PERCENT)
+        drivetrain.drive_for(FORWARD, 15, INCHES, 95, PERCENT)
+
+        drivetrain.turn_for(RIGHT, 305, DEGREES, 90, PERCENT)
+        drivetrain.drive_for(REVERSE, 70, INCHES, 95, PERCENT)
+
+
+
+
+
+
+
+
     def set_config(self, config: dict[str, Any]):
         print(config)
 
