@@ -376,8 +376,8 @@ class Auton:
                 #its ring rush time
                 #BLUE 
                 #without alliance stake
-                drivetrain.drive_for(REVERSE, 62, INCHES, 85, PERCENT, wait=True)
-                drivetrain.drive_for(REVERSE, 7, INCHES, 85, PERCENT)
+                drivetrain.drive_for(REVERSE, 60, INCHES, 85, PERCENT, wait=True)
+                drivetrain.drive_for(REVERSE, 5, INCHES, 85, PERCENT)
                 stake_grabber.toggle()
 
                 wait(0.3, SECONDS)
