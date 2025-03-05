@@ -121,13 +121,16 @@ class WallStake:
         self.init()
 
     def spin_to(self, target, unit):
-
-        while abs(target - self.rotation.position(unit)) > 4:
+        time_spent = 0
+        while abs(target - self.rotation.position(unit)) > 4 or time_spent > 1000:
             if target > self.rotation.position(unit):
                 self.motor.spin(FORWARD, 60, PERCENT)
             
             if target < self.rotation.position(unit):
                 self.motor.spin(REVERSE, 60, PERCENT)
+
+            wait(20, MSEC)
+            time_spent += 20
         
         self.motor.stop()
     
@@ -429,6 +432,7 @@ class Auton:
                 drivetrain.drive_for(REVERSE, 5, INCHES, 85, PERCENT)
                 stake_grabber.toggle()
 
+
                 wait(0.3, SECONDS)
                 #score the preload
                 lift_intake.motor.spin_for(REVERSE, 3, TURNS, 100, PERCENT)
@@ -456,35 +460,49 @@ class Auton:
 
                 drivetrain.stop()
                 lift_intake.motor.stop(BRAKE)
-                    
-
-            """
-            #"thrust" the donuts
-            drivetrain.drive_for(FORWARD, 18, INCHES, 85, PERCENT)
-            drivetrain.drive_for(REVERSE, 7, INCHES, 85, PERCENT)
-            drivetrain.turn_for(LEFT, 90, DEGREES, 85, PERCENT)
-            drivetrain.drive_for(FORWARD, 8, INCHES, 85, PERCENT)
-            drivetrain.turn_for(RIGHT, 90, DEGREES, 85, PERCENT)
-            drivetrain.drive_for(FORWARD, 8, INCHES, 80, PERCENT)
-            drivetrain.drive_for(REVERSE, 8, INCHES, 85, PERCENT)
-
-            drivetrain.turn_for(LEFT, 90, DEGREES, 75, PERCENT)
-            drivetrain.drive_for(FORWARD, 14, INCHES, 90, PERCENT)
-            drivetrain.turn_for(LEFT, 90, DEGREES, 85, PERCENT)
-
-            drivetrain.drive_for(FORWARD, 51, INCHES, 90, PERCENT)
-            
-            doink_piston.toggle()
-            drivetrain.drive_for(FORWARD, 10, INCHES, 80, PERCENT)
-            drivetrain.turn_for(LEFT, 116.6, DEGREES, 90, PERCENT)"""
-            
+                     
         #elif self.direction == RIGHT:
             
 
             
 
     def _skills(self):
-        #which direction?
+        #initial_time = brain.timer.time(MSEC)
+        wall_stake.motor.spin(FORWARD, 90, PERCENT)
+        wait(1, SECONDS)
+        drivetrain.drive_for(REVERSE, 14, INCHES, 95, PERCENT)
+        wall_stake.motor.spin(REVERSE, 90, PERCENT)
+        wait(0.9, SECONDS)
+
+        wall_stake.motor.stop(BRAKE)
+
+        drivetrain.drive_for(FORWARD, 8, INCHES, 95, PERCENT)
+
+        drivetrain.turn_for(RIGHT, 80, DEGREES, 90, PERCENT)
+
+        drivetrain.drive_for(REVERSE, 66, INCHES, 95, PERCENT)
+        drivetrain.drive_for(REVERSE, 4, INCHES, 95, PERCENT, wait=False)
+        stake_grabber.toggle()
+
+        wait(1, SECONDS)
+
+        drivetrain.turn_for(RIGHT, 107, DEGREES, 90, PERCENT)
+
+        lift_intake.spin(REVERSE)
+
+        drivetrain.drive_for(FORWARD, 65, INCHES, 100, PERCENT)
+
+        drivetrain.turn_for(RIGHT, 85, DEGREES, 90, PERCENT)
+
+        drivetrain.drive_for(FORWARD, 62, INCHES, 95, PERCENT)
+
+        drivetrain.turn_for(RIGHT, 85, DEGREES, 90, PERCENT)
+        
+        drivetrain.drive_for(FORWARD, 74, INCHES, 100, PERCENT)
+        
+
+
+        """#which direction
         drivetrain.drive_for(REVERSE, 62, INCHES, 95, PERCENT, wait=True)
         drivetrain.drive_for(REVERSE, 3, INCHES, 95, PERCENT, wait=False)
         stake_grabber.toggle()
@@ -543,13 +561,7 @@ class Auton:
         drivetrain.drive_for(FORWARD, 15, INCHES, 95, PERCENT)
 
         drivetrain.turn_for(RIGHT, 305, DEGREES, 90, PERCENT)
-        drivetrain.drive_for(REVERSE, 70, INCHES, 95, PERCENT)
-
-
-
-
-
-
+        drivetrain.drive_for(REVERSE, 70, INCHES, 95, PERCENT)"""
 
 
     def set_config(self, config: dict[str, Any]):
@@ -582,7 +594,6 @@ class Auton:
 
     def __call__(self):
         wall_stake.start_log()
-
         self._routine_selected()
 
 #region Parts
