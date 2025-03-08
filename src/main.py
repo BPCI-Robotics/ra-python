@@ -208,10 +208,55 @@ class DigitalOutToggleable(DigitalOut):
         self.state = not self.state
         self.set(self.state)
 
+class AutonControl:
+
+    class _PID_Basic:
+        def __init__(self, PID: tuple[float, float, float]):
+            self.Kp = PID[0]
+            self.Ki = PID[1]
+            self.Kd = PID[2]
+
+            self.time_prev = 0
+            self.e_prev = 0
+
+        def __call__(self, current: float, target: float) -> float:
+            
+            self.target = target
+            self.current = current
+            return self._do_calculation()
+
+        def _do_calculation(self) -> float:
+
+            Kp = self.Kp
+            Ki = self.Ki
+            Kd = self.Kd
+            I = 0
+
+            t = brain.timer.time(MSEC) / 1000
+            dt = t - self.time_prev
+
+            e = self.target - self.current
+            de = e - self.e_prev
+
+            P = Kp * e
+            I += Ki * e*dt
+            D = Kd * de/dt
+
+            MV = P + I + D
+
+            self.e_prev = e
+            self.time_prev = t
+
+            return self.current + MV
+    
+    def __init__(self, drivetrain: SmartDrive, inertial: Inertial, PID: tuple[float, float, float]):
+        self.drivetrain = drivetrain
+        self.inertial = inertial
+
 class Auton:
     def __init__(self):
         self.direction = LEFT
-        self._routine_selected = self._quals
+        self._routine_selected = self._noop
         self.color = RED_SIG
         self.mode = "Ring"
 
