@@ -155,7 +155,7 @@ class WallStake:
         Thread(self.print_pos)
 
     def pickup(self):
-        self.spin_to(36, DEGREES)
+        self.spin_to(23.5, DEGREES)
 
     def score(self):
         self.spin_to(192.48, DEGREES)
@@ -667,8 +667,8 @@ drivetrain= SmartDrive(
                 Inertial(Ports.PORT10), 
 
                 259.34, # wheel travel
-                310,    # track width
-                205,    # wheel base
+                315,    # track width
+                280,    # wheel base
                 MM,     # unit
                 600/360
             )
