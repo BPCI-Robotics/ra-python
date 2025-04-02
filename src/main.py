@@ -678,7 +678,7 @@ lift_intake = LiftIntake(
     Vision(Ports.PORT9, 50, BLUE_SIG, RED_SIG), 
 )
 
-wall_stake = WallStake(Motor(Ports.PORT8, GearSetting.RATIO_36_1, True), Rotation(Ports.PORT11))
+wall_stake = WallStake(Motor(Ports.PORT8, GearSetting.RATIO_36_1, True), Rotation(Ports.PORT9))
 
 #endregion Parts
 
