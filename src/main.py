@@ -172,15 +172,11 @@ class WallStake:
 
 # COMPLETED
 class LiftIntake:
-    def __init__(self, motor: Motor, vision: Vision):
+    def __init__(self, motor: Motor):
         self.motor = motor
-        self.vision = vision
         self.enemy_sig = None
 
         self.motor.set_stopping(BRAKE)
-    
-    def set_enemy_sig(self, enemy_sig):
-        self.enemy_sig = enemy_sig
 
     def spin(self, direction: DirectionType.DirectionType):
         self.motor.spin(direction, 100, PERCENT)
@@ -198,6 +194,9 @@ class DigitalOutToggleable(DigitalOut):
     def toggle(self):
         self.state = not self.state
         self.set(self.state)
+
+RED_SIG = 0
+BLUE_SIG = 1
 
 class Auton:
     def __init__(self):
@@ -266,9 +265,6 @@ class Auton:
         self._routine_selected()
 
 #region Parts
-BLUE_SIG = Signature(1, -4645, -3641, -4143,4431, 9695, 7063, 2.5, 0)
-RED_SIG = Signature(2, 7935, 9719, 8827,-1261, -289, -775, 2.5, 0)
-
 brain = Brain()
 controller = Controller()
 
@@ -300,10 +296,7 @@ drivetrain= SmartDrive(
             )
 d = drivetrain
 
-lift_intake = LiftIntake(
-    Motor(Ports.PORT7, GearSetting.RATIO_6_1, True), 
-    Vision(Ports.PORT9, 50, BLUE_SIG, RED_SIG), 
-)
+lift_intake = LiftIntake(Motor(Ports.PORT7, GearSetting.RATIO_6_1, True))
 
 wall_stake = WallStake(Motor(Ports.PORT8, GearSetting.RATIO_36_1, True), Rotation(Ports.PORT9))
 
