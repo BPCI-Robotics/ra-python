@@ -47,8 +47,6 @@ class WallStake:
         self.motor.stop()
     
     def init(self):
-        self.spin(REVERSE) 
-        wait(800, MSEC)
         self.rotation.reset_position()
         self.motor.set_position(0, DEGREES)
         self.stop()
