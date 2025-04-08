@@ -302,6 +302,8 @@ wall_stake = WallStake(Motor(Ports.PORT8, GearSetting.RATIO_36_1, True), Rotatio
 
 def initialize():
     inertial.calibrate()
+
+    # TODO: adjust this
     drivetrain.set_turn_constant(1)
 
     menu = SelectionMenu()
