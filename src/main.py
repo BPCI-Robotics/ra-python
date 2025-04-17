@@ -112,7 +112,7 @@ class SelectionMenu:
             )
             i += 1
 
-# COMPLETED
+# TODO
 class WallStake:
     def __init__(self, motor: Motor, rotation: Rotation):
         self.motor = motor
@@ -136,12 +136,14 @@ class WallStake:
         self.motor.stop()
     
     def init(self):
+        self.spin(REVERSE) 
+        wait(800, MSEC)
         self.rotation.reset_position()
         self.stop()
 
     def print_pos(self):
         while True:
-            wait(200, MSEC)
+            wait(500, MSEC)
             brain.screen.clear_screen()
             brain.screen.set_cursor(1, 1)
             brain.screen.print("Intake temp:", lift_intake.motor.temperature())
@@ -149,6 +151,10 @@ class WallStake:
             brain.screen.print("Wall stake temp:", wall_stake.motor.temperature())
             brain.screen.set_cursor(3, 1)
             brain.screen.print("Drivetrain temp:", drivetrain.temperature())
+            brain.screen.set_cursor(4, 1)
+            brain.screen.print("Wall stake pos:", self.rotation.angle())
+            brain.screen.set_cursor(5, 1)
+            brain.screen.print("Motor pos:", self.motor.position())
 
     def start_log(self):
         Thread(self.print_pos)
@@ -213,15 +219,15 @@ class Auton:
 
     def _skills(self):
         while True:
-            d.turn_to_heading(0, DEGREES)
-            d.drive_for(12, INCHES)
-            d.turn_to_heading(90, DEGREES)
-            d.drive_for(12, INCHES)
-            d.turn_to_heading(180, DEGREES)
-            d.drive_for(12, INCHES)
-            d.turn_to_heading(270, DEGREES)
-            d.drive_for(12, INCHES)
-            d.turn_to_heading(360, DEGREES)
+            d.drive_for(FORWARD, 12, INCHES)
+            sleep(2, SECONDS)
+            d.set_heading(90)
+            sleep(2, SECONDS)
+            d.set_heading(180)
+            sleep(2, SECONDS)
+            d.set_heading(270)
+            sleep(2, SECONDS)
+            d.set_heading(360)
         
 
     def _quals(self):
@@ -302,8 +308,6 @@ wall_stake = WallStake(Motor(Ports.PORT8, GearSetting.RATIO_36_1, True), Rotatio
 
 def initialize():
     inertial.calibrate()
-
-    # TODO: adjust this
     drivetrain.set_turn_constant(1)
 
     menu = SelectionMenu()
