@@ -1,3 +1,4 @@
+
 from vex import *
 
 wall_stake_motor = Motor(Ports.PORT8, GearSetting.RATIO_36_1, True)
@@ -29,12 +30,13 @@ class WallStake:
         self.motor = motor
         self.rotation = rotation
 
+        self.motor.set_max_torque(0.2, TorqueUnits.NM)
         self.motor.set_stopping(HOLD)
-        self.init()
+        #self.init()
 
     def spin_to(self, target, unit):
         time_spent = 0
-        while abs(target - self.rotation.position(unit)) > 4 or time_spent > 1000:
+        while abs(target - self.rotation.position(unit)) > 0 or time_spent > 1000:
             if target > self.rotation.position(unit):
                 self.motor.spin(FORWARD, 60, PERCENT)
             
@@ -45,11 +47,43 @@ class WallStake:
             time_spent += 20
         
         self.motor.stop()
-    
-    def init(self):
-        self.rotation.reset_position()
-        self.motor.set_position(0, DEGREES)
-        self.stop()
+
+
+    """def spin_to_2(self, target, unit):
+        time_spent = 0
+
+        if target > self.rotation.position(unit):
+            while abs(target - self.rotation.position(unit)) > 2:
+                self.motor.spin(FORWARD, 60, PERCENT)
+
+                wait(20, MSEC)
+
+                time_spent += 20
+
+                if abs(target - self.rotation.position(unit)) == 2 or abs(target - self.rotation.position(unit)) < 2:
+                    self.motor.stop()
+
+                elif time_spent >= 1000:
+                    self.motor.stop()
+                
+
+        elif target < self.rotation.position(unit):
+            while abs(target - self.rotation.position(unit)) > 2:
+                self.motor.spin(REVERSE, 60, PERCENT)
+
+                wait(20, MSEC)
+                time_spent += 20
+
+                if abs(target - self.rotation.position(unit)) == 2 or abs(target - self.rotation.position(unit)) < 2:
+                    self.motor.stop()
+
+                elif time_spent >= 1000:
+                    self.motor.stop()"""
+
+    """def init(self):
+    self.rotation.reset_position()
+    self.motor.set_position(0, DEGREES)
+    self.stop()"""
 
     def print_pos(self):
         while True:
@@ -62,7 +96,7 @@ class WallStake:
 
     def start_log(self):
         Thread(self.print_pos)
-
+        
     def pickup(self):
         self.spin_to(36, DEGREES)
 
