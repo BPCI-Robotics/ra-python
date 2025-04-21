@@ -1,4 +1,3 @@
-
 from vex import *
 
 # COMPLETED
@@ -113,35 +112,74 @@ class SelectionMenu:
             )
             i += 1
 
-# COMPLETED
+# TODO: Test PID
 class WallStake:
-    def __init__(self, motor: Motor, rotation: Rotation):
+    class PID_Basic:
+        def __init__(self, kPID: tuple[float, float, float]):
+            self.Kp = kPID[0]
+            self.Ki = kPID[1]
+            self.Kd = kPID[2]
+
+            self.time_prev = 0
+            self.e_prev = 0
+
+        def __call__(self, current: float, target: float) -> float:
+            
+            self.target = target
+            self.current = current
+            return self._do_calculation()
+
+        def _do_calculation(self) -> float:
+
+            Kp = self.Kp
+            Ki = self.Ki
+            Kd = self.Kd
+            I = 0
+
+            time = brain.timer.time(MSEC) / 1000
+
+            e = self.target - self.current
+
+            P = Kp*e
+            I += Ki*e*(time - self.time_prev)
+            D = Kd*(e - self.e_prev)/(time - self.time_prev)
+
+            MV = P + I + D
+
+            self.e_prev = e
+            self.time_prev = time
+
+            # Not using self.current + MV, since it sets the velocity, rather than the position.
+            return MV
+
+    def __init__(self, motor: Motor, rotation: Rotation, kPID: tuple[float, float, float]):
         self.motor = motor
         self.rotation = rotation
+        self.pid = WallStake.PID_Basic(kPID)
 
         self.motor.set_stopping(HOLD)
-        self.init()
-
-    def spin_to(self, target, unit):
-        time_spent = 0
-        while abs(target - self.rotation.position(unit)) > 0 or time_spent > 1000:
-            if target > self.rotation.position(unit):
-                self.motor.spin(FORWARD, 60, PERCENT)
-            
-            if target < self.rotation.position(unit):
-                self.motor.spin(REVERSE, 60, PERCENT)
-
-            wait(20, MSEC)
-            time_spent += 20
-        
-        self.motor.stop()
-        
-
-        self.motor.stop()
-    
-    def init(self):
         self.rotation.reset_position()
-        self.stop()
+        self.target_pos = 0
+        self.unit = DEGREES
+        
+        Thread(self._pid_loop)
+
+    def _pid_loop(self):
+        while True:
+            wait(20, MSEC)
+            self.motor.set_velocity(self.pid(self.rotation.position(self.unit), self.target_pos), PERCENT)
+
+    def spin_to(self, target: vexnumber, unit: RotationUnits.RotationUnits, _wait=True, _timeout=1000):
+        self.target_pos = target
+
+        # We always use degrees, but let's make sure.
+        self.unit = unit
+
+        if _wait:
+            neru = 0
+            while abs(self.rotation.position(DEGREES) - self.target_pos) > 3 and neru < _timeout:
+                wait(20, MSEC)
+                neru += 20
 
     def print_pos(self):
         while True:
@@ -641,15 +679,17 @@ d = drivetrain
 
 lift_intake = LiftIntake(Motor(Ports.PORT7, GearSetting.RATIO_6_1, True))
 
-wall_stake = WallStake(Motor(Ports.PORT8, GearSetting.RATIO_36_1, True), Rotation(Ports.PORT9))
+# TODO: tune the PID
+wall_stake_PID_constants = (0.3, 0.0, 0.1)
+wall_stake = WallStake(Motor(Ports.PORT8, GearSetting.RATIO_36_1, True), Rotation(Ports.PORT9), wall_stake_PID_constants)
 
 #endregion Parts
 
 def initialize():
     inertial.calibrate()
 
-    # TODO: adjust this
-    drivetrain.set_turn_constant(1)
+    # TODON'T: adjust this (I don't know what it does)
+    # drivetrain.set_turn_constant(1)
 
     menu = SelectionMenu()
 
@@ -702,7 +742,6 @@ def driver():
         wait(1 / 60, SECONDS)
 
 auton = Auton()
-
 
 Competition(driver, auton)
 initialize()
