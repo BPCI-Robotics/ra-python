@@ -160,20 +160,26 @@ class WallStake:
         self.motor.set_stopping(HOLD)
         self.rotation.reset_position()
         self.target_pos = 0
-        self.unit = DEGREES
         
         Thread(self._pid_loop)
 
     def _pid_loop(self):
         while True:
             wait(20, MSEC)
-            self.motor.set_velocity(self.pid(self.rotation.position(self.unit), self.target_pos), PERCENT)
+            self.motor.set_velocity(self.pid(self.rotation.position(DEGREES), self.target_pos), PERCENT)
 
-    def spin_to(self, target: vexnumber, unit: RotationUnits.RotationUnits, _wait=True, _timeout=1000):
+            # Torque limiter (try every 0.5 seconds)
+            if self.motor.torque(TorqueUnits.NM) > 0.2:
+                self.motor.set_velocity(0, PERCENT)
+                wait(500, MSEC)
+
+    def spin_to(self, target: vexnumber, _unit=DEGREES, _wait=True, _timeout=1000):
+        """
+        Spin the WallStake to a position using PID. Only allowed unit is degrees. \\
+        `wall_stake.spin_to(45)` \\
+        `wall_stake.spin_to(45, DEGREES)`
+        """
         self.target_pos = target
-
-        # We always use degrees, but let's make sure.
-        self.unit = unit
 
         if _wait:
             neru = 0
@@ -183,7 +189,7 @@ class WallStake:
 
     def print_pos(self):
         while True:
-            wait(200, MSEC)
+            wait(1000, MSEC)
             brain.screen.clear_screen()
             brain.screen.set_cursor(1, 1)
             brain.screen.print("Intake temp:", lift_intake.motor.temperature())
@@ -251,21 +257,11 @@ class Auton:
         drivetrain.set_drive_velocity(60, PERCENT)
 
     def _noop(self):
-        pass
+        raise ValueError("auton was not set.")
 
     def _skills(self):
-        while True:
-            d.turn_to_heading(0, DEGREES)
-            d.drive_for(12, INCHES)
-            d.turn_to_heading(90, DEGREES)
-            d.drive_for(12, INCHES)
-            d.turn_to_heading(180, DEGREES)
-            d.drive_for(12, INCHES)
-            d.turn_to_heading(270, DEGREES)
-            d.drive_for(12, INCHES)
-            d.turn_to_heading(360, DEGREES)
+        raise ValueError("no skills auton exists")
         
-
     def _quals(self):
         if self.color == RED_SIG:
             #run ring rush with alliance stake scoring
