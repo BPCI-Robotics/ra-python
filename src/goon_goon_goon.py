@@ -189,7 +189,7 @@ class WallStake:
 
     def print_pos(self):
         while True:
-            wait(1000, MSEC)
+            wait(500, MSEC)
             brain.screen.clear_screen()
             brain.screen.set_cursor(1, 1)
             brain.screen.print("Intake temp:", lift_intake.motor.temperature())
@@ -197,6 +197,10 @@ class WallStake:
             brain.screen.print("Wall stake temp:", wall_stake.motor.temperature())
             brain.screen.set_cursor(3, 1)
             brain.screen.print("Drivetrain temp:", drivetrain.temperature())
+            brain.screen.set_cursor(4, 1):
+            brain.screen.print("Wall stake degree/position:", wall_stake.rotation.position(DEGREES))
+            brain.screen.set_cursor(5, 1):
+            brain.screen.print("Wall stake motor power:", wall_stake.motor.power(WATTS))
 
     def start_log(self):
         Thread(self.print_pos)
@@ -270,8 +274,23 @@ class Auton:
             #drivetrain.drive_for
 
             wait(0.8, SECONDS)
-
-            wall_stake.spin_to(212, DEGREES)
+            #change this
+            #increment degree of motor while checking motor power
+            while (time condition):
+                wait(some time)
+                if wall_stake.motor.power(WATT) > whatever number and lower bound of velocity < wall_stake.rotation.velocity() < upper bound of velocity:
+                    wall_stake.motor.stop()
+                    wall_stake.reset()
+                    wait(1.5, SECONDS)
+                    drivetrain.drive_for(REVERSE, whatever, INCHES, whatever, PERCENT)
+                elif time_condition >= some number:
+                    wall_stake.motor.stop()
+                    wall_stake.reset()
+                    wait(1.5, SECONDS)
+                    drivetrain.drive_for(REVERSE, whatever, INCHES, whatever, PERCENT)
+                else:
+                    wall_stake.spin_for(increment, DEGREES, 60, PERCENT)
+            #wall_stake.spin_to(212, DEGREES)
 
             wait(1, SECONDS)
 
