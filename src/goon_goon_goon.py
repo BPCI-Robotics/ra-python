@@ -114,96 +114,31 @@ class SelectionMenu:
 
 # TODO: Test PID
 class WallStake:
-    class PID_Basic:
-        def __init__(self, kPID: tuple[float, float, float]):
-            self.Kp = kPID[0]
-            self.Ki = kPID[1]
-            self.Kd = kPID[2]
-
-            self.time_prev = 0
-            self.e_prev = 0
-
-        def __call__(self, current: float, target: float) -> float:
-            
-            self.target = target
-            self.current = current
-            return self._do_calculation()
-
-        def _do_calculation(self) -> float:
-
-            Kp = self.Kp
-            Ki = self.Ki
-            Kd = self.Kd
-            I = 0
-
-            time = brain.timer.time(MSEC) / 1000
-
-            e = self.target - self.current
-
-            P = Kp*e
-            I += Ki*e*(time - self.time_prev)
-            D = Kd*(e - self.e_prev)/(time - self.time_prev)
-
-            MV = P + I + D
-
-            self.e_prev = e
-            self.time_prev = time
-
-            # Not using self.current + MV, since it sets the velocity, rather than the position.
-            return MV
-
-    def __init__(self, motor: Motor, rotation: Rotation, kPID: tuple[float, float, float]):
+    def __init__(self, motor: Motor, rotation: Rotation):
         self.motor = motor
         self.rotation = rotation
-        self.pid = WallStake.PID_Basic(kPID)
 
         self.motor.set_stopping(HOLD)
         self.rotation.reset_position()
         self.target_pos = 0
-        
-        Thread(self._pid_loop)
+    
+    def spin_to(self, target, unit, timeout=1000):
+        time_spent = 0
+        while abs(target - self.rotation.position(unit)) > 5 and time_spent < timeout:
 
-    def _pid_loop(self):
-        while True:
+            #if self.motor.torque(TorqueUnits.NM) > 0.1:
+                #break
+
+            if target > self.rotation.position(unit):
+                self.motor.spin(FORWARD, 40, PERCENT)
+            
+            if target < self.rotation.position(unit):
+                self.motor.spin(REVERSE, 40, PERCENT)
+
             wait(20, MSEC)
-            self.motor.set_velocity(self.pid(self.rotation.position(DEGREES), self.target_pos), PERCENT)
-
-            # Torque limiter (try every 0.5 seconds)
-            if self.motor.torque(TorqueUnits.NM) > 0.2:
-                self.motor.set_velocity(0, PERCENT)
-                wait(500, MSEC)
-
-    def spin_to(self, target: vexnumber, _unit=DEGREES, _wait=True, _timeout=1000):
-        """
-        Spin the WallStake to a position using PID. Only allowed unit is degrees. \\
-        `wall_stake.spin_to(45)` \\
-        `wall_stake.spin_to(45, DEGREES)`
-        """
-        self.target_pos = target
-
-        if _wait:
-            neru = 0
-            while abs(self.rotation.position(DEGREES) - self.target_pos) > 3 and neru < _timeout:
-                wait(20, MSEC)
-                neru += 20
-
-    def print_pos(self):
-        while True:
-            wait(500, MSEC)
-            brain.screen.clear_screen()
-            brain.screen.set_cursor(1, 1)
-            brain.screen.print("Intake temp:", lift_intake.motor.temperature())
-            brain.screen.set_cursor(2, 1)
-            brain.screen.print("Wall stake temp:", wall_stake.motor.temperature())
-            brain.screen.set_cursor(3, 1)
-            brain.screen.print("Drivetrain temp:", drivetrain.temperature())
-            brain.screen.set_cursor(4, 1):
-            brain.screen.print("Wall stake degree/position:", wall_stake.rotation.position(DEGREES))
-            brain.screen.set_cursor(5, 1):
-            brain.screen.print("Wall stake motor power:", wall_stake.motor.power(WATTS))
-
-    def start_log(self):
-        Thread(self.print_pos)
+            time_spent += 20
+        
+        self.motor.stop()
 
     def pickup(self):
         self.spin_to(23.5, DEGREES)
@@ -220,13 +155,22 @@ class WallStake:
     def stop(self):
         self.motor.stop()
 
+    def limiter(self):
+        while True:
+            wait(20, MSEC)
+            if self.rotation.position(DEGREES) > 120:
+                self.motor.stop(HOLD)
+
+    def constantly_limiting(self):
+        Thread(self.limiter)
+
 # COMPLETED
 class LiftIntake:
     def __init__(self, motor: Motor):
         self.motor = motor
         self.enemy_sig = None
 
-        self.motor.set_stopping(BRAKE)
+        self.motor.set_stopping(BrakeType.BRAKE)
 
     def spin(self, direction: DirectionType.DirectionType):
         self.motor.spin(direction, 100, PERCENT)
@@ -248,6 +192,13 @@ class DigitalOutToggleable(DigitalOut):
 RED_SIG = 0
 BLUE_SIG = 1
 
+def scale(n):
+    return n / 0.352
+
+# THIS ONLY RETURNS INCHES!!
+def tiles(n):
+    return scale(n * 24)
+
 class Auton:
     def __init__(self):
         self.direction = LEFT
@@ -255,77 +206,115 @@ class Auton:
         self.color = RED_SIG
         self.mode = "Ring"
 
-        drivetrain.set_heading(0, DEGREES)
-        drivetrain.set_rotation(0, DEGREES)
+        #drivetrain.set_heading(0, DEGREES)
+        #drivetrain.set_rotation(0, DEGREES)
         drivetrain.set_turn_velocity(75, PERCENT)
         drivetrain.set_drive_velocity(60, PERCENT)
+        drivetrain.set_stopping(COAST)
 
     def _noop(self):
         raise ValueError("auton was not set.")
 
     def _skills(self):
-        raise ValueError("no skills auton exists")
+        #raise ValueError("no skills set")
+        drivetrain.drive_for(REVERSE, tiles(0.8), INCHES, 70, PERCENT, True)
+        drivetrain.turn_for(RIGHT, 180, DEGREES)
+    
+    #scaling factor: 0.35
         
     def _quals(self):
         if self.color == RED_SIG:
-            #run ring rush with alliance stake scoring
-            drivetrain.drive_for(FORWARD, 36, INCHES, 60, PERCENT, wait=True)
-            drivetrain.drive_for(FORWARD, 2, INCHES, 60, PERCENT)
-            #drivetrain.drive_for
-
-            wait(0.8, SECONDS)
-            #change this
-            #increment degree of motor while checking motor power
-            while (time condition):
-                wait(some time)
-                if wall_stake.motor.power(WATT) > whatever number and lower bound of velocity < wall_stake.rotation.velocity() < upper bound of velocity:
-                    wall_stake.motor.stop()
-                    wall_stake.reset()
-                    wait(1.5, SECONDS)
-                    drivetrain.drive_for(REVERSE, whatever, INCHES, whatever, PERCENT)
-                elif time_condition >= some number:
-                    wall_stake.motor.stop()
-                    wall_stake.reset()
-                    wait(1.5, SECONDS)
-                    drivetrain.drive_for(REVERSE, whatever, INCHES, whatever, PERCENT)
-                else:
-                    wall_stake.spin_for(increment, DEGREES, 60, PERCENT)
-            #wall_stake.spin_to(212, DEGREES)
-
-            wait(1, SECONDS)
-
-            wall_stake.spin_to(359, DEGREES)
+            drivetrain.drive_for(FORWARD, tiles(0.3), INCHES, 60, PERCENT, True)
+            wait(0.25, SECONDS)
+            wall_stake.spin_to(110, DEGREES)  
+            wait(0.85, SECONDS)
+            drivetrain.drive_for(REVERSE, tiles(.4), INCHES, 70, PERCENT, False)          
+            wall_stake.spin_to(0, DEGREES)
+            drivetrain.drive_for(REVERSE, tiles(1.2), INCHES, 70, PERCENT, True)
+            
+            #grab stake
+            stake_grabber.toggle()
+            lift_intake.spin(REVERSE)
+            drivetrain.turn_for(LEFT, 240, DEGREES, 80, PERCENT)
 
             wait(0.5, SECONDS)
+            drivetrain.drive_for(FORWARD, 40, INCHES, 70, PERCENT)
+            wait(0.5, SECONDS)
+            drivetrain.drive_for(REVERSE, 8, INCHES, 70, PERCENT)
+            #run ring rush with alliance stake scoring
+            #drivetrain.drive_for(FORWARD, 46, INCHES, 60, PERCENT, wait=True)
+            #drivetrain.drive_for(FORWARD, 2, INCHES, 60, PERCENT)
+            #drivetrain.drive_for
 
-            drivetrain.drive_for(REVERSE, 68, INCHES, 90, PERCENT, True)
-            stake_grabber.toggle()
+            #wait(0.8, SECONDS)
+            #wall_stake.motor.spin(REVERSE, 60, PERCENT)
+            #wait(0.5, SECONDS)
+            #wall_stake.motor.spin(FORWARD, 60, PERCENT)
+            #wait(0.5, SECONDS)
+            #wall_stake.motor.stop()
+            
+            """time_passed = 0
+            while True:
+                wait(20, MSEC)
+                if 230 < wall_stake.rotation.position() < 240 and wall_stake.motor.is_spinning():
+                    wall_stake.motor.stop()
+                    wait(0.5, SECONDS)
+                    drivetrain.drive_for(REVERSE, 6, INCHES, 70, PERCENT, False)
+                    wall_stake.reset()
+                    break
 
-            drivetrain.turn_to_heading(180, DEGREES)
+                elif time_passed >= 2500:
+                    wall_stake.motor.stop()
+                    wait(0.2, SECONDS)
+                    wall_stake.reset()
+                    break
+                
+                else:
+                    time_passed += 20
+
+        
+                
+                """
+            #wall_stake.motor.spin_for(REVERSE, 1, TURNS, 80, PERCENT, wait = True)
+
+            #wall_stake.spin_to(212, DEGREES)
+
+            #wait(0.8, SECONDS)
+
+            #drivetrain.drive_for(REVERSE, 6, INCHES, 70, PERCENT, False)
+            #wall_stake.reset() 
+            #wall_stake.spin_to(359, DEGREES)
+
+            #wait(0.5, SECONDS)
+
+            #drivetrain.drive_for(REVERSE, 68, INCHES, 90, PERCENT, True)
+            #stake_grabber.toggle()
+
+            #drivetrain.turn_to_heading(180, DEGREES)
 
             #drivetrain.turn_for(LEFT, 205, DEGREES, 90, PERCENT)
 
-            drivetrain.drive_for(REVERSE, 55, INCHES, 90, PERCENT)
-            drivetrain.drive_for(FORWARD, 5, INCHES, 80, PERCENT)
+            #drivetrain.drive_for(REVERSE, 55, INCHES, 90, PERCENT)
+            #drivetrain.drive_for(FORWARD, 5, INCHES, 80, PERCENT)
 
-            wait(0.2, SECONDS)
+            #wait(0.2, SECONDS)
 
-            drivetrain.turn_for(RIGHT, 120, DEGREES, 85, PERCENT)
+            #drivetrain.turn_for(RIGHT, 120, DEGREES, 85, PERCENT)
 
-            """lift_intake.spin(FORWARD)
+            #lift_intake.spin(FORWARD)
 
-            drivetrain.drive_for(FORWARD, 34, INCHES, 90, PERCENT)
-            drivetrain.drive_for(REVERSE, 5, INCHES, 80, PERCENT)
+            #drivetrain.drive_for(FORWARD, 34, INCHES, 90, PERCENT)
+            #drivetrain.drive_for(REVERSE, 5, INCHES, 80, PERCENT)
             #after testing, we can add the above two lines again to pick up a third donut onto the stake
 
-            drivetrain.turn_for(RIGHT, 90, DEGREES, 80, PERCENT)
+            #drivetrain.turn_for(RIGHT, 90, DEGREES, 80, PERCENT)
 
-            drivetrain.drive_for(FORWARD, 30, INCHES, 90, PERCENT)
-            drivetrain.drive_for(REVERSE, 5, INCHES, 80, PERCENT)
+            #drivetrain.drive_for(FORWARD, 30, INCHES, 90, PERCENT)
+            #drivetrain.drive_for(REVERSE, 5, INCHES, 80, PERCENT)
 
             #check the time - if we don't have much time left, then just hit ladder
-            drivetrain.turn_for(RIGHT, 90, DEGREES, 85, PERCENT)
-            drivetrain.drive_for(FORWARD, 60, INCHES, 90, PERCENT)
+            #drivetrain.turn_for(RIGHT, 90, DEGREES, 85, PERCENT)
+            #drivetrain.drive_for(FORWARD, 60, INCHES, 90, PERCENT)
 
             #check the time - if we have time left, then the following code will apply
 
@@ -335,7 +324,7 @@ class Auton:
             
             #doink_piston.toggle()
             #drivetrain.drive_for(FORWARD, 10, INCHES, 80, PERCENT)
-            #drivetrain.turn_for(LEFT, 70, DEGREES, 90, PERCENT)"""
+            #drivetrain.turn_for(LEFT, 70, DEGREES, 90, PERCENT)""" 
 
         elif self.color == BLUE_SIG:
             #ts for goal rush
@@ -561,7 +550,7 @@ class Auton:
             self._routine_selected = self._elims
 
     def __call__(self):
-        wall_stake.start_log()
+        #wall_stake.start_log()
         self._routine_selected()
 
 """def skills(self):
@@ -669,7 +658,7 @@ doink_piston = DigitalOutToggleable(brain.three_wire_port.b)
 
 inertial = Inertial(Ports.PORT10)
 
-drivetrain= SmartDrive(
+drivetrain= DriveTrain(
                 MotorGroup(
                     Motor(Ports.PORT1, GearSetting.RATIO_6_1, False), 
                     Motor(Ports.PORT2, GearSetting.RATIO_6_1, True),
@@ -682,13 +671,13 @@ drivetrain= SmartDrive(
                     Motor(Ports.PORT6, GearSetting.RATIO_6_1, True),
                 ),
 
-                inertial, 
+                #inertial, 
 
                 259.34, # wheel travel
                 315,    # track width
                 280,    # wheel base
                 MM,     # unit
-                600/360
+                600/360 # gear ratio
             )
 d = drivetrain
 
@@ -696,12 +685,13 @@ lift_intake = LiftIntake(Motor(Ports.PORT7, GearSetting.RATIO_6_1, True))
 
 # TODO: tune the PID
 wall_stake_PID_constants = (0.3, 0.0, 0.1)
-wall_stake = WallStake(Motor(Ports.PORT8, GearSetting.RATIO_36_1, True), Rotation(Ports.PORT9), wall_stake_PID_constants)
+wall_stake = WallStake(Motor(Ports.PORT8, GearSetting.RATIO_36_1, True), Rotation(Ports.PORT9, True))
 
 #endregion Parts
 
 def initialize():
     inertial.calibrate()
+    # drivetrain.set_turn_direction_reverse(True)
 
     # TODON'T: adjust this (I don't know what it does)
     # drivetrain.set_turn_constant(1)
@@ -720,8 +710,8 @@ def initialize():
     controller.buttonLeft.pressed(menu.force_submit)
 
 def driver():
-    wall_stake.start_log()
 
+    wall_stake.constantly_limiting()
     drivetrain.set_drive_velocity(0, PERCENT)
     drivetrain.set_turn_velocity(0, PERCENT)
     
