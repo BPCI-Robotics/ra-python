@@ -171,12 +171,31 @@ class LiftIntake:
         self.enemy_sig = None
 
         self.motor.set_stopping(BrakeType.BRAKE)
+        self.spinning = False
 
     def spin(self, direction: DirectionType.DirectionType):
         self.motor.spin(direction, 100, PERCENT)
+        self.spinning = True
+    
+    def get_unstuck(self):
+        while self.spinning == True:
+            wait(20, MSEC)
+            if self.motor.velocity(RPM) == 0:
+                self.motor.spin(FORWARD)
+                wait(0.3, SECONDS)
+                self.spin(REVERSE)
+
+            else:
+                continue
+
+    def constantly_unstuck(self):
+        Thread(self.get_unstuck)
+
 
     def stop(self):
         self.motor.stop()
+        self.spinning = False
+
 
 # COMPLETED
 class DigitalOutToggleable(DigitalOut):
@@ -192,12 +211,23 @@ class DigitalOutToggleable(DigitalOut):
 RED_SIG = 0
 BLUE_SIG = 1
 
+#This function is actually stupid. Dumb bunny #1 and Dumb bunny #2 had a brainfart here 
+#until Dumb bunny #2 turned into Srinivasa Ramanujan and came up with an elliptic curve 
+#approximation algorithm that was pulled straight from his bowels
 def scale(n):
     return n / 0.352
 
 # THIS ONLY RETURNS INCHES!!
 def tiles(n):
     return scale(n * 24)
+
+#Note: ts is the Ramanujan approximation which Dumb bunny #2 came up with. 
+#This is probably what we wanted in the first place, but we were actually stupid.
+def scale_degrees(n):
+    return (1/(1-0.352))*n
+
+def scale_distance(n):
+    return (1/0.352)*n
 
 class Auton:
     def __init__(self):
@@ -216,310 +246,332 @@ class Auton:
         raise ValueError("auton was not set.")
 
     def _skills(self):
-        #raise ValueError("no skills set")
-        drivetrain.drive_for(REVERSE, tiles(0.8), INCHES, 70, PERCENT, True)
-        drivetrain.turn_for(RIGHT, 180, DEGREES)
-    
-    #scaling factor: 0.35
+        initialize()
+        drivetrain.drive_for(FORWARD, scale_distance(10.5), INCHES, 80, PERCENT)
+        wall_stake.spin_to(117, DEGREES)
+        wait(1, SECONDS)
+        drivetrain.drive_for(REVERSE, scale_distance(3), INCHES, 80, PERCENT)
+        wall_stake.reset()
+        drivetrain.drive_for(REVERSE, scale_distance(4), INCHES, 80, PERCENT)
+        if wall_stake.rotation.position() > 0:
+            wall_stake.reset()
+        
+        drivetrain.drive_for(REVERSE, scale_distance(5), INCHES, 80, PERCENT)
+        drivetrain.turn_for(LEFT, scale_degrees(90), DEGREES, 80, PERCENT)
+        drivetrain.drive_for(REVERSE, scale_distance(26), INCHES, 80, PERCENT)
+        stake_grabber.toggle()
+        lift_intake.spin(REVERSE)
+        lift_intake.constantly_unstuck()
+        drivetrain.drive_for(REVERSE, scale_distance(4), INCHES, 80, PERCENT)
+        drivetrain.turn_for(LEFT, scale_degrees(91), DEGREES, 80, PERCENT)
+        drivetrain.drive_for(FORWARD, scale_distance(28), INCHES, 85, PERCENT)
+        wait(0.4, SECONDS)
+        drivetrain.turn_for(LEFT, scale_degrees(91), DEGREES, 85, PERCENT)
+        drivetrain.drive_for(FORWARD, scale_distance(28), INCHES, 90, PERCENT)
+        wait(0.4, SECONDS)
+        drivetrain.turn_for(LEFT, scale_degrees(64), DEGREES, 90, PERCENT)
+        drivetrain.drive_for(FORWARD, scale_distance(28), INCHES, 95, PERCENT)
+        wait(0.4, SECONDS)
+        drivetrain.drive_for(REVERSE, scale_distance(14), INCHES, 95, PERCENT)
+        drivetrain.turn_for(LEFT, scale_degrees(29), DEGREES, 95, PERCENT)
+        drivetrain.drive_for(FORWARD, scale_distance(29), INCHES, 100, PERCENT)
+        drivetrain.turn_for(LEFT, scale_degrees(110), DEGREES, 100, PERCENT)
+        drivetrain.drive_for(REVERSE, scale_distance(34), INCHES, 90, PERCENT)
+        stake_grabber.toggle()
+        drivetrain.drive_for(FORWARD, scale_distance(10), INCHES, 85, PERCENT)
+
         
     def _quals(self):
         if self.color == RED_SIG:
-            drivetrain.drive_for(FORWARD, tiles(0.3), INCHES, 60, PERCENT, True)
-            wait(0.25, SECONDS)
-            wall_stake.spin_to(110, DEGREES)  
-            wait(0.85, SECONDS)
-            drivetrain.drive_for(REVERSE, tiles(.4), INCHES, 70, PERCENT, False)          
-            wall_stake.spin_to(0, DEGREES)
-            drivetrain.drive_for(REVERSE, tiles(1.2), INCHES, 70, PERCENT, True)
-            
-            #grab stake
-            stake_grabber.toggle()
-            lift_intake.spin(REVERSE)
-            drivetrain.turn_for(LEFT, 240, DEGREES, 80, PERCENT)
+            if self.mode == "Ring":
+                initialize()
+                drivetrain.drive_for(FORWARD, scale_distance(11.5), INCHES, 60, PERCENT, True)
+                wait(0.25, SECONDS)
+                wall_stake.spin_to(120, DEGREES)  
+                wait(0.85, SECONDS)
+                drivetrain.drive_for(REVERSE, 6, INCHES, 70, PERCENT, False)
+                wall_stake.spin_to(125, DEGREES)
+                wait(0.2, SECONDS)
+                drivetrain.drive_for(REVERSE, 6, INCHES, 70, PERCENT, True)          
+                wall_stake.reset()
+                drivetrain.drive_for(REVERSE, tiles(1.4), INCHES, 60, PERCENT, True)
 
-            wait(0.5, SECONDS)
-            drivetrain.drive_for(FORWARD, 40, INCHES, 70, PERCENT)
-            wait(0.5, SECONDS)
-            drivetrain.drive_for(REVERSE, 8, INCHES, 70, PERCENT)
-            #run ring rush with alliance stake scoring
-            #drivetrain.drive_for(FORWARD, 46, INCHES, 60, PERCENT, wait=True)
-            #drivetrain.drive_for(FORWARD, 2, INCHES, 60, PERCENT)
-            #drivetrain.drive_for
-
-            #wait(0.8, SECONDS)
-            #wall_stake.motor.spin(REVERSE, 60, PERCENT)
-            #wait(0.5, SECONDS)
-            #wall_stake.motor.spin(FORWARD, 60, PERCENT)
-            #wait(0.5, SECONDS)
-            #wall_stake.motor.stop()
-            
-            """time_passed = 0
-            while True:
-                wait(20, MSEC)
-                if 230 < wall_stake.rotation.position() < 240 and wall_stake.motor.is_spinning():
-                    wall_stake.motor.stop()
-                    wait(0.5, SECONDS)
-                    drivetrain.drive_for(REVERSE, 6, INCHES, 70, PERCENT, False)
+                if wall_stake.rotation.position(DEGREES) > 0:
                     wall_stake.reset()
-                    break
+                
+                #grab stake
+                stake_grabber.toggle()
+                wait(0.2, SECONDS)
+                lift_intake.spin(REVERSE)
+                lift_intake.constantly_unstuck()
+                drivetrain.turn_for(LEFT, scale_degrees(183), DEGREES, 80, PERCENT)
 
-                elif time_passed >= 2500:
-                    wall_stake.motor.stop()
-                    wait(0.2, SECONDS)
+                wait(0.5, SECONDS)
+                drivetrain.drive_for(FORWARD, scale_distance(24), INCHES, 70, PERCENT)
+                wait(0.16, SECONDS)
+                drivetrain.drive_for(REVERSE, scale_distance(18), INCHES, 70, PERCENT)
+                drivetrain.turn_for(RIGHT, scale_degrees(52), DEGREES, 80, PERCENT)
+                drivetrain.drive_for(FORWARD, scale_distance(15), INCHES, 80, PERCENT)
+                drivetrain.drive_for(REVERSE, scale_distance(5), INCHES, 80, PERCENT)
+                drivetrain.turn_for(LEFT, scale_degrees(70), DEGREES, 80, PERCENT)
+                drivetrain.drive_for(FORWARD, scale_distance(14), INCHES, 70, PERCENT)
+                wait(0.17, SECONDS)
+                drivetrain.drive_for(REVERSE, scale_distance(20), INCHES, 70, PERCENT)
+                drivetrain.turn_for(LEFT, scale_degrees(72), DEGREES, 80, PERCENT)
+                drivetrain.drive_for(FORWARD, scale_distance(24), INCHES, 80, PERCENT)
+
+            elif self.mode == "Goal":
+                initialize()
+                drivetrain.drive_for(FORWARD, scale_distance(11.5), INCHES, 70, PERCENT)
+                wait(0.25, SECONDS)
+                wall_stake.spin_to(115, DEGREES)
+                wait(0.85, SECONDS)  
+                drivetrain.drive_for(REVERSE, 6, INCHES, 70, PERCENT, True)
+                wall_stake.reset()
+                drivetrain.drive_for(REVERSE, 6, INCHES, 70, PERCENT)
+                drivetrain.drive_for(REVERSE, tiles(1.45), INCHES, 60, PERCENT)
+                
+                if wall_stake.rotation.position(DEGREES) > 0:
                     wall_stake.reset()
-                    break
                 
-                else:
-                    time_passed += 20
-
-        
+                wait(0.2, SECONDS)
+                stake_grabber.toggle()
+                wait(0.2, SECONDS)
+                lift_intake.spin(REVERSE)
+                lift_intake.constantly_unstuck()
+                drivetrain.turn_for(RIGHT, scale_degrees(139), DEGREES, 80, PERCENT)
+                drivetrain.drive_for(FORWARD, scale_distance(22), INCHES, 80, PERCENT)
+                wait(0.5, SECONDS)
+                drivetrain.turn_for(LEFT, scale_degrees(182), DEGREES, 85, PERCENT)
+                drivetrain.drive_for(FORWARD, scale_distance(44), INCHES, 85, PERCENT)
                 
-                """
-            #wall_stake.motor.spin_for(REVERSE, 1, TURNS, 80, PERCENT, wait = True)
+                wait(0.6, SECONDS)
 
-            #wall_stake.spin_to(212, DEGREES)
-
-            #wait(0.8, SECONDS)
-
-            #drivetrain.drive_for(REVERSE, 6, INCHES, 70, PERCENT, False)
-            #wall_stake.reset() 
-            #wall_stake.spin_to(359, DEGREES)
-
-            #wait(0.5, SECONDS)
-
-            #drivetrain.drive_for(REVERSE, 68, INCHES, 90, PERCENT, True)
-            #stake_grabber.toggle()
-
-            #drivetrain.turn_to_heading(180, DEGREES)
-
-            #drivetrain.turn_for(LEFT, 205, DEGREES, 90, PERCENT)
-
-            #drivetrain.drive_for(REVERSE, 55, INCHES, 90, PERCENT)
-            #drivetrain.drive_for(FORWARD, 5, INCHES, 80, PERCENT)
-
-            #wait(0.2, SECONDS)
-
-            #drivetrain.turn_for(RIGHT, 120, DEGREES, 85, PERCENT)
-
-            #lift_intake.spin(FORWARD)
-
-            #drivetrain.drive_for(FORWARD, 34, INCHES, 90, PERCENT)
-            #drivetrain.drive_for(REVERSE, 5, INCHES, 80, PERCENT)
-            #after testing, we can add the above two lines again to pick up a third donut onto the stake
-
-            #drivetrain.turn_for(RIGHT, 90, DEGREES, 80, PERCENT)
-
-            #drivetrain.drive_for(FORWARD, 30, INCHES, 90, PERCENT)
-            #drivetrain.drive_for(REVERSE, 5, INCHES, 80, PERCENT)
-
-            #check the time - if we don't have much time left, then just hit ladder
-            #drivetrain.turn_for(RIGHT, 90, DEGREES, 85, PERCENT)
-            #drivetrain.drive_for(FORWARD, 60, INCHES, 90, PERCENT)
-
-            #check the time - if we have time left, then the following code will apply
-
-            #drivetrain.turn_for(LEFT, 90, DEGREES, 75, PERCENT)
-
-            #drivetrain.drive_for(FORWARD, 51, INCHES, 90, PERCENT)
-            
-            #doink_piston.toggle()
-            #drivetrain.drive_for(FORWARD, 10, INCHES, 80, PERCENT)
-            #drivetrain.turn_for(LEFT, 70, DEGREES, 90, PERCENT)""" 
+                lift_intake.stop()
 
         elif self.color == BLUE_SIG:
-            #ts for goal rush
-            drivetrain.drive_for(REVERSE, 40, INCHES, 85, PERCENT)
-            drivetrain.drive_for(REVERSE, 5, INCHES, 85, PERCENT)
-            stake_grabber.toggle()
+            if self.mode == "Ring":
+                initialize()
+                drivetrain.drive_for(FORWARD, scale_distance(11.5), INCHES, 60, PERCENT, True)
+                wait(0.25, SECONDS)
+                wall_stake.spin_to(120, DEGREES)  
+                wait(0.85, SECONDS)
+                drivetrain.drive_for(REVERSE, 6, INCHES, 70, PERCENT, False)
+                wall_stake.spin_to(125, DEGREES)
+                wait(0.2, SECONDS)
+                drivetrain.drive_for(REVERSE, 6, INCHES, 70, PERCENT, True)          
+                wall_stake.reset()
+                drivetrain.drive_for(REVERSE, tiles(1.4), INCHES, 60, PERCENT, True)
 
-            wait(0.3, SECONDS)
-            #score the preload
-            lift_intake.motor.spin_for(REVERSE, 2, TURNS)
-            lift_intake.motor.spin_for(REVERSE, 1, TURNS)
-            drivetrain.turn_for(LEFT, 90, DEGREES, 80, PERCENT)
+                if wall_stake.rotation.position(DEGREES) > 0:
+                    wall_stake.reset()
 
-            lift_intake.spin(FORWARD)
+                #grab stake
+                stake_grabber.toggle()
+                wait(0.2, SECONDS)
+                lift_intake.spin(REVERSE)
+                lift_intake.constantly_unstuck()
+                drivetrain.turn_for(RIGHT, scale_degrees(183), DEGREES, 80, PERCENT)
 
-            drivetrain.drive_for(FORWARD, 35, INCHES, 90, PERCENT)
-            wait(0.5, SECONDS)
-            drivetrain.drive_for(REVERSE, 5, INCHES, 80, PERCENT)
+                wait(0.5, SECONDS)
+                drivetrain.drive_for(FORWARD, scale_distance(24), INCHES, 70, PERCENT)
+                wait(0.16, SECONDS)
+                drivetrain.drive_for(REVERSE, scale_distance(18), INCHES, 70, PERCENT)
+                drivetrain.turn_for(LEFT, scale_degrees(52), DEGREES, 80, PERCENT)
+                drivetrain.drive_for(FORWARD, scale_distance(15), INCHES, 80, PERCENT)
+                drivetrain.drive_for(REVERSE, scale_distance(5), INCHES, 80, PERCENT)
+                drivetrain.turn_for(RIGHT, scale_degrees(66), DEGREES, 80, PERCENT)
+                drivetrain.drive_for(FORWARD, scale_distance(15), INCHES, 70, PERCENT)
+                wait(0.17, SECONDS)
+                drivetrain.drive_for(REVERSE, scale_distance(21), INCHES, 70, PERCENT)
+                drivetrain.turn_for(RIGHT, scale_degrees(68), DEGREES, 80, PERCENT)
+                drivetrain.drive_for(FORWARD, scale_distance(24), INCHES, 80, PERCENT)
 
-            drivetrain.turn_for(RIGHT, 90, DEGREES, 85, PERCENT)
-            drivetrain.drive_for(FORWARD, 12, INCHES, 90, PERCENT)
+                lift_intake.stop()
 
-            drivetrain.turn_for(LEFT, 90, DEGREES, 85, PERCENT)
-            drivetrain.drive_for(FORWARD, 18, INCHES, 90, PERCENT)
-
-            drivetrain.turn_for(RIGHT, 90, DEGREES, 85, PERCENT)
-
-            drivetrain.drive_for(FORWARD, 60, INCHES, 90, PERCENT)
             
-            #clear corner
-            doink_piston.toggle()
-            drivetrain.drive_for(FORWARD, 10, INCHES, 80, PERCENT)
-            drivetrain.turn_for(RIGHT, 116.6, DEGREES, 90, PERCENT)
+            elif self.mode == "Goal":
+                initialize()
+                drivetrain.drive_for(FORWARD, scale_distance(11.5), INCHES, 70, PERCENT)
+                wait(0.25, SECONDS)
+                wall_stake.spin_to(118, DEGREES)
+                wait(0.85, SECONDS)  
+                drivetrain.drive_for(REVERSE, 6, INCHES, 70, PERCENT, True)
+                wall_stake.reset()
+                drivetrain.drive_for(REVERSE, 6, INCHES, 70, PERCENT)
+                drivetrain.drive_for(REVERSE, tiles(1.45), INCHES, 60, PERCENT)
+                
+                if wall_stake.rotation.position(DEGREES) > 0:
+                    wall_stake.reset()
+                
+                wait(0.2, SECONDS)
+                stake_grabber.toggle()
+                wait(0.2, SECONDS)
+                lift_intake.spin(REVERSE)
+                lift_intake.constantly_unstuck()
+                drivetrain.turn_for(LEFT, scale_degrees(141), DEGREES, 80, PERCENT)
+                drivetrain.drive_for(FORWARD, scale_distance(22), INCHES, 80, PERCENT)
+                wait(0.5, SECONDS)
+                drivetrain.turn_for(LEFT, scale_degrees(182), DEGREES, 85, PERCENT)
+                drivetrain.drive_for(FORWARD, scale_distance(41), INCHES, 85, PERCENT)
+                
+                wait(0.6, SECONDS)
 
+                lift_intake.stop()
+
+    
+    
+    
     def _elims(self):
         drivetrain.set_timeout(5, SECONDS)
         if self.color == RED_SIG:
             if self.mode == "Ring":
-                #its ring rush time
-                #RED 
-                #without alliance stake
-                drivetrain.drive_for(REVERSE, 60, INCHES, 85, PERCENT, wait=True)
-                drivetrain.drive_for(REVERSE, 5, INCHES, 85, PERCENT)
-                stake_grabber.toggle()
+                initialize()
+                drivetrain.drive_for(FORWARD, scale_distance(11.5), INCHES, 60, PERCENT, True)
+                wait(0.25, SECONDS)
+                wall_stake.spin_to(120, DEGREES)  
+                wait(0.85, SECONDS)
+                drivetrain.drive_for(REVERSE, 6, INCHES, 70, PERCENT, False)
+                wall_stake.spin_to(125, DEGREES)
+                wait(0.2, SECONDS)
+                drivetrain.drive_for(REVERSE, 6, INCHES, 70, PERCENT, True)          
+                wall_stake.reset()
+                drivetrain.drive_for(REVERSE, tiles(1.4), INCHES, 60, PERCENT, True)
 
-                wait(0.3, SECONDS)
-                #score the preload
-                lift_intake.motor.spin_for(REVERSE, 3, TURNS, 100, PERCENT)
-                lift_intake.motor.spin_for(REVERSE, 1, TURNS, 100, PERCENT)
-
-                drivetrain.turn_for(LEFT, 105, DEGREES, 80, PERCENT)
-
-                lift_intake.motor.spin(REVERSE, 100, PERCENT)
-
-                drivetrain.drive_for(FORWARD, 46, INCHES, 90, PERCENT, wait=True)
-                drivetrain.drive_for(REVERSE, 6, INCHES, 90, PERCENT, wait=True)
-
-                drivetrain.turn_for(LEFT, 63, DEGREES, 85, PERCENT, wait=True)
-
-                #just to make sure that the lift intake spins properly
-                lift_intake.motor.spin(REVERSE, 100, PERCENT)
-
-                drivetrain.drive_for(FORWARD, 47, INCHES, 90, PERCENT, wait=True)
-                drivetrain.drive_for(FORWARD, 7, INCHES, 80, PERCENT, wait=True)
-                drivetrain.drive_for(REVERSE, 6, INCHES, 90, PERCENT)
-
-                #drivetrain.turn_for(RIGHT, 62, DEGREES, 85, PERCENT, wait=True)
-                #drivetrain.drive_for(FORWARD, 18, INCHES, 80, PERCENT, wait=True)
-                drivetrain.drive_for(REVERSE, 5, INCHES, 85, PERCENT, wait=True)
-
-                drivetrain.stop()
+                if wall_stake.rotation.position(DEGREES) > 0:
+                    wall_stake.reset()
                 
-                wait(4, SECONDS)
+                #grab stake
+                stake_grabber.toggle()
+                wait(0.2, SECONDS)
+                lift_intake.spin(REVERSE)
+                lift_intake.constantly_unstuck()
+                drivetrain.turn_for(LEFT, scale_degrees(183), DEGREES, 80, PERCENT)
+
+                wait(0.5, SECONDS)
+                drivetrain.drive_for(FORWARD, scale_distance(24), INCHES, 70, PERCENT)
+                wait(0.16, SECONDS)
+                drivetrain.drive_for(REVERSE, scale_distance(18), INCHES, 70, PERCENT)
+                drivetrain.turn_for(RIGHT, scale_degrees(52), DEGREES, 80, PERCENT)
+                drivetrain.drive_for(FORWARD, scale_distance(15), INCHES, 80, PERCENT)
+                drivetrain.drive_for(REVERSE, scale_distance(5), INCHES, 80, PERCENT)
+                drivetrain.turn_for(LEFT, scale_degrees(70), DEGREES, 80, PERCENT)
+                drivetrain.drive_for(FORWARD, scale_distance(14), INCHES, 70, PERCENT)
+                wait(0.17, SECONDS)
+                drivetrain.drive_for(REVERSE, scale_distance(29), INCHES, 85, PERCENT)
+                drivetrain.turn_for(RIGHT, scale_degrees(48), DEGREES, 80, PERCENT)
+                drivetrain.drive_for(REVERSE, scale_distance(25), INCHES, 90, PERCENT)
 
             elif self.mode == "Goal":
-                #its goal rush time
-                #BLUE 
-                #without alliance stake
-                drivetrain.drive_for(REVERSE, 60, INCHES, 85, PERCENT, wait=True)
-                drivetrain.drive_for(REVERSE, 5, INCHES, 85, PERCENT)
+                initialize()
+                drivetrain.drive_for(FORWARD, scale_distance(11.5), INCHES, 70, PERCENT)
+                wait(0.25, SECONDS)
+                wall_stake.spin_to(115, DEGREES)
+                wait(0.85, SECONDS)  
+                drivetrain.drive_for(REVERSE, 6, INCHES, 70, PERCENT, True)
+                wall_stake.reset()
+                drivetrain.drive_for(REVERSE, 6, INCHES, 70, PERCENT)
+                drivetrain.drive_for(REVERSE, tiles(1.45), INCHES, 60, PERCENT)
+                
+                if wall_stake.rotation.position(DEGREES) > 0:
+                    wall_stake.reset()
+                
+                wait(0.2, SECONDS)
                 stake_grabber.toggle()
-
-                wait(0.3, SECONDS)
-                #score the preload
-                lift_intake.motor.spin_for(REVERSE, 3, TURNS, 100, PERCENT)
-                lift_intake.motor.spin_for(REVERSE, 1, TURNS, 100, PERCENT)
-
-                drivetrain.turn_for(RIGHT, 105, DEGREES, 80, PERCENT)
-
-                lift_intake.motor.spin(REVERSE, 100, PERCENT)
-
-                drivetrain.drive_for(FORWARD, 46, INCHES, 90, PERCENT, wait=True)
-                drivetrain.drive_for(REVERSE, 6, INCHES, 90, PERCENT, wait=True)
-
-                drivetrain.turn_for(RIGHT, 63, DEGREES, 85, PERCENT, wait=True)
-
-                #just to make sure that the lift intake spins properly
-                lift_intake.motor.spin(REVERSE, 100, PERCENT)
-
-                drivetrain.drive_for(FORWARD, 47, INCHES, 90, PERCENT, wait=True)
-                drivetrain.drive_for(FORWARD, 7, INCHES, 80, PERCENT, wait=True)
-                drivetrain.drive_for(REVERSE, 6, INCHES, 90, PERCENT)
-
-                #drivetrain.turn_for(RIGHT, 62, DEGREES, 85, PERCENT, wait=True)
-                #drivetrain.drive_for(FORWARD, 18, INCHES, 80, PERCENT, wait=True)
-                drivetrain.drive_for(REVERSE, 5, INCHES, 85, PERCENT, wait=True)
-
-                drivetrain.stop()
-                lift_intake.motor.stop(BRAKE)
+                wait(0.2, SECONDS)
+                lift_intake.spin(REVERSE)
+                lift_intake.constantly_unstuck()
+                drivetrain.turn_for(RIGHT, scale_degrees(140), DEGREES, 80, PERCENT)
+                drivetrain.drive_for(FORWARD, scale_distance(22), INCHES, 80, PERCENT)
+                wait(0.35, SECONDS)
+                drivetrain.drive_for(REVERSE, scale_distance(24), INCHES, 80, PERCENT)
+                stake_grabber.toggle()
+                wait(0.2, SECONDS)
+                drivetrain.drive_for(FORWARD, scale_distance(2), INCHES, 85, PERCENT)
+                drivetrain.turn_for(LEFT, scale_degrees(136), DEGREES, 85, PERCENT)
+                drivetrain.drive_for(REVERSE, scale_distance(30), INCHES, 80, PERCENT)
+                lift_intake.stop()
+                stake_grabber.toggle()
+                wait(0.4, SECONDS)
+                drivetrain.drive_for(FORWARD, scale_distance(8), INCHES, 80, PERCENT)
+                drivetrain.turn_for(RIGHT, scale_degrees(126), DEGREES, 80, PERCENT)
+                drivetrain.drive_for(FORWARD, scale_distance(21), INCHES, 95, PERCENT)
 
         elif self.color == BLUE_SIG:
             if self.mode == "Ring":
-                #its ring rush time
-                #BLUE 
-                #without alliance stake
-                drivetrain.drive_for(REVERSE, 60, INCHES, 85, PERCENT, wait=True)
-                drivetrain.drive_for(REVERSE, 5, INCHES, 85, PERCENT)
+                initialize()
+                drivetrain.drive_for(FORWARD, scale_distance(11.5), INCHES, 60, PERCENT, True)
+                wait(0.25, SECONDS)
+                wall_stake.spin_to(120, DEGREES)  
+                wait(0.85, SECONDS)
+                drivetrain.drive_for(REVERSE, 6, INCHES, 70, PERCENT, False)
+                wall_stake.spin_to(125, DEGREES)
+                wait(0.2, SECONDS)
+                drivetrain.drive_for(REVERSE, 6, INCHES, 70, PERCENT, True)          
+                wall_stake.reset()
+                drivetrain.drive_for(REVERSE, tiles(1.4), INCHES, 60, PERCENT, True)
+
+                if wall_stake.rotation.position(DEGREES) > 0:
+                    wall_stake.reset()
+
+
+                #grab stake
                 stake_grabber.toggle()
+                wait(0.2, SECONDS)
+                lift_intake.spin(REVERSE)
+                lift_intake.constantly_unstuck()
+                drivetrain.turn_for(RIGHT, scale_degrees(183), DEGREES, 80, PERCENT)
 
-                wait(0.3, SECONDS)
-                #score the preload
-                lift_intake.motor.spin_for(REVERSE, 3, TURNS, 90, PERCENT)
-                lift_intake.motor.spin_for(REVERSE, 1, TURNS, 90, PERCENT)
-                if lift_intake.motor.velocity() == 0:
-                    lift_intake.motor.spin_for(FORWARD, 1,  TURNS, 80, PERCENT, wait=True)
-
-                    lift_intake.motor.spin(REVERSE, 100, PERCENT)
-    
-                drivetrain.turn_for(RIGHT, 105, DEGREES, 80, PERCENT)
-
-                lift_intake.motor.spin(REVERSE, 100, PERCENT)
-
-                drivetrain.drive_for(FORWARD, 49, INCHES, 90, PERCENT, wait=True)
-                drivetrain.drive_for(REVERSE, 6, INCHES, 90, PERCENT, wait=True)
-
-                drivetrain.turn_for(RIGHT, 63, DEGREES, 85, PERCENT, wait=True)
-
-                #just to make sure that the lift intake spins properly
-                lift_intake.motor.spin(REVERSE, 100, PERCENT)
-
-                drivetrain.drive_for(FORWARD, 45, INCHES, 90, PERCENT, wait=True)
-                drivetrain.drive_for(FORWARD, 6, INCHES, 80, PERCENT, wait=True)
-                lift_intake.motor.spin(REVERSE, 100, PERCENT)
-                drivetrain.drive_for(REVERSE, 7, INCHES, 90, PERCENT, wait=True) 
-
-                wait(4, SECONDS)
-
-                #drivetrain.turn_for(LEFT, 62, DEGREES, 85, PERCENT, wait=True)
-                #drivetrain.drive_for(FORWARD, 18, INCHES, 80, PERCENT, wait=True)
-                #drivetrain.drive_for(REVERSE, 5, INCHES, 85, PERCENT, wait=True)
-
-                #no more moving 
-                drivetrain.stop()
-                lift_intake.motor.stop(BRAKE)
-
-                #smash into ladder time 
-                #drivetrain.turn_for(LEFT, 180, DEGREES, 85, PERCENT, wait=True)
-                #drivetrain.drive_for(FORWARD, 56, INCHES, 95, PERCENT)
+                wait(0.5, SECONDS)
+                drivetrain.drive_for(FORWARD, scale_distance(24), INCHES, 70, PERCENT)
+                wait(0.16, SECONDS)
+                drivetrain.drive_for(REVERSE, scale_distance(18), INCHES, 70, PERCENT)
+                drivetrain.turn_for(LEFT, scale_degrees(52), DEGREES, 80, PERCENT)
+                drivetrain.drive_for(FORWARD, scale_distance(15), INCHES, 80, PERCENT)
+                drivetrain.drive_for(REVERSE, scale_distance(5), INCHES, 80, PERCENT)
+                drivetrain.turn_for(RIGHT, scale_degrees(66), DEGREES, 80, PERCENT)
+                drivetrain.drive_for(FORWARD, scale_distance(15), INCHES, 70, PERCENT)
+                wait(0.17, SECONDS)
+                drivetrain.drive_for(REVERSE, scale_distance(31), INCHES, 70, PERCENT)
+                lift_intake.stop()
+                drivetrain.turn_for(LEFT, scale_degrees(48), DEGREES, 80, PERCENT)
+                drivetrain.drive_for(REVERSE, scale_distance(30), INCHES, 90, PERCENT)
+                
 
             elif self.mode == "Goal":
-                #its goal rush time
-                #BLUE 
-                #without alliance stake
-                drivetrain.drive_for(REVERSE, 60, INCHES, 85, PERCENT, wait=True)
-                drivetrain.drive_for(REVERSE, 5, INCHES, 85, PERCENT)
+                initialize()
+                drivetrain.drive_for(FORWARD, scale_distance(11.5), INCHES, 70, PERCENT)
+                wait(0.25, SECONDS)
+                wall_stake.spin_to(118, DEGREES)
+                wait(0.85, SECONDS)  
+                drivetrain.drive_for(REVERSE, 6, INCHES, 70, PERCENT, True)
+                wall_stake.reset()
+                drivetrain.drive_for(REVERSE, 6, INCHES, 70, PERCENT)
+                drivetrain.drive_for(REVERSE, tiles(1.45), INCHES, 60, PERCENT)
+                
+                if wall_stake.rotation.position(DEGREES) > 0:
+                    wall_stake.reset()
+                
+                wait(0.2, SECONDS)
                 stake_grabber.toggle()
-
-
-                wait(0.3, SECONDS)
-                #score the preload
-                lift_intake.motor.spin_for(REVERSE, 3, TURNS, 100, PERCENT)
-                lift_intake.motor.spin_for(REVERSE, 1, TURNS, 100, PERCENT)
-
-                drivetrain.turn_for(LEFT, 105, DEGREES, 80, PERCENT)
-
-                lift_intake.motor.spin(REVERSE, 100, PERCENT)
-
-                drivetrain.drive_for(FORWARD, 46, INCHES, 90, PERCENT, wait=True)
-                drivetrain.drive_for(REVERSE, 6, INCHES, 90, PERCENT, wait=True)
-
-                drivetrain.turn_for(LEFT, 63, DEGREES, 85, PERCENT, wait=True)
-
-                #just to make sure that the lift intake spins properly
-                lift_intake.motor.spin(REVERSE, 100, PERCENT)
-
-                drivetrain.drive_for(FORWARD, 47, INCHES, 90, PERCENT, wait=True)
-                drivetrain.drive_for(FORWARD, 7, INCHES, 80, PERCENT, wait=True)
-                drivetrain.drive_for(REVERSE, 6, INCHES, 90, PERCENT)
-
-                #drivetrain.turn_for(RIGHT, 62, DEGREES, 85, PERCENT, wait=True)
-                #drivetrain.drive_for(FORWARD, 18, INCHES, 80, PERCENT, wait=True)
-                drivetrain.drive_for(REVERSE, 5, INCHES, 85, PERCENT, wait=True)
-
-                drivetrain.stop()
-                lift_intake.motor.stop(BRAKE)
+                wait(0.2, SECONDS)
+                lift_intake.spin(REVERSE)
+                lift_intake.constantly_unstuck()
+                drivetrain.turn_for(LEFT, scale_degrees(141), DEGREES, 80, PERCENT)
+                drivetrain.drive_for(FORWARD, scale_distance(22), INCHES, 80, PERCENT)
+                wait(0.4, SECONDS)
+                drivetrain.drive_for(REVERSE, scale_distance(24), INCHES, 85, PERCENT)
+                wait(0.5, SECONDS)
+                stake_grabber.toggle()
+                wait(0.2, SECONDS)
+                lift_intake.stop()
+                drivetrain.drive_for(FORWARD, scale_distance(3), INCHES, 90, PERCENT)
+                drivetrain.turn_for(RIGHT, scale_degrees(129), DEGREES, 90, PERCENT)
+                drivetrain.drive_for(REVERSE, scale_distance(31), INCHES, 90, PERCENT)
+                stake_grabber.toggle()
+                drivetrain.drive_for(FORWARD, scale_distance(10), INCHES, 80, PERCENT)
+                drivetrain.turn_for(RIGHT, scale_degrees(61), DEGREES, 95, PERCENT)
+                drivetrain.drive_for(REVERSE, scale_distance(28), INCHES, 90, PERCENT)
 
     def set_config(self, config: dict[str, Any]):
         print(config)
@@ -552,101 +604,6 @@ class Auton:
     def __call__(self):
         #wall_stake.start_log()
         self._routine_selected()
-
-"""def skills(self):
-        #initial_time = brain.timer.time(MSEC)
-        wall_stake.motor.spin(FORWARD, 90, PERCENT)
-        wait(1, SECONDS)
-        drivetrain.drive_for(REVERSE, 14, INCHES, 95, PERCENT)
-        wall_stake.motor.spin(REVERSE, 90, PERCENT)
-        wait(0.9, SECONDS)
-
-        wall_stake.motor.stop(BRAKE)
-
-        drivetrain.drive_for(FORWARD, 8, INCHES, 95, PERCENT)
-
-        drivetrain.turn_for(RIGHT, 80, DEGREES, 90, PERCENT)
-
-        drivetrain.drive_for(REVERSE, 66, INCHES, 95, PERCENT)
-        drivetrain.drive_for(REVERSE, 4, INCHES, 95, PERCENT, wait=False)
-        stake_grabber.toggle()
-
-        wait(1, SECONDS)
-
-        drivetrain.turn_for(RIGHT, 107, DEGREES, 90, PERCENT)
-
-        lift_intake.spin(REVERSE)
-
-        drivetrain.drive_for(FORWARD, 65, INCHES, 100, PERCENT)
-
-        drivetrain.turn_for(RIGHT, 85, DEGREES, 90, PERCENT)
-
-        drivetrain.drive_for(FORWARD, 62, INCHES, 95, PERCENT)
-
-        drivetrain.turn_for(RIGHT, 85, DEGREES, 90, PERCENT)
-        
-        drivetrain.drive_for(FORWARD, 74, INCHES, 100, PERCENT)
-
-    #which direction
-        drivetrain.drive_for(REVERSE, 62, INCHES, 95, PERCENT, wait=True)
-        drivetrain.drive_for(REVERSE, 3, INCHES, 95, PERCENT, wait=False)
-        stake_grabber.toggle()
-
-        wait(0.2, SECONDS)
-        #score the preload
-        lift_intake.motor.spin_for(REVERSE, 3, TURNS, 100, PERCENT)
-        lift_intake.motor.spin_for(REVERSE, 1, TURNS, 100, PERCENT)
-
-        drivetrain.turn_for(LEFT, 210, DEGREES, 90, PERCENT)
-
-        lift_intake.motor.spin(REVERSE, 100, PERCENT, wait=False)
-
-        drivetrain.drive_for(FORWARD, 60, INCHES, 95, PERCENT, wait=True)
-        wait(0.7, SECONDS)
- 
-        drivetrain.turn_for(LEFT, 105, DEGREES, 90, PERCENT, wait=True)
-
-        #just to make sure that the lift intake spins properly
-        lift_intake.motor.spin(REVERSE, 100, PERCENT, wait=False)
-
-        drivetrain.drive_for(FORWARD, 60, INCHES, 95, PERCENT, wait=True)
-        wait(0.7, SECONDS)
-
-        drivetrain.turn_for(LEFT, 105, DEGREES, 90, PERCENT, wait=True)
-
-        lift_intake.motor.spin(REVERSE, 100, PERCENT)
-
-        drivetrain.drive_for(FORWARD, 78, INCHES, 95, PERCENT, wait=True)
-        wait(0.3, SECONDS)
-
-        drivetrain.turn_for(LEFT, 305, DEGREES, 90, PERCENT, wait=True)
-        drivetrain.drive_for(REVERSE, 60, INCHES, wait=True)
-
-        #ungrab the stake to put into corner
-        stake_grabber.toggle()
-        wait(0.8, SECONDS)
-
-        drivetrain.drive_for(FORWARD, 60, INCHES, 95, PERCENT, wait=True)
-
-        drivetrain.turn_for(RIGHT, 60, DEGREES, 90, PERCENT, wait=True)
-
-        drivetrain.drive_for(REVERSE, 120, INCHES, 95, PERCENT, wait = True)
-        drivetrain.drive_for(REVERSE, 5, INCHES, 95, PERCENT, wait=False)
-        
-        #to grab second mobile goal
-        stake_grabber.toggle()
-        
-        wait(0.8, SECONDS)
-
-        drivetrain.drive_for(FORWARD, 60, INCHES, 95, PERCENT)
-        drivetrain.turn_for(RIGHT, 158, DEGREES, 90, PERCENT, wait=True)
-
-        drivetrain.drive_for(FORWARD, 87, INCHES, 95, PERCENT)
-        drivetrain.turn_for(RIGHT, 50, DEGREES, 90, PERCENT)
-        drivetrain.drive_for(FORWARD, 15, INCHES, 95, PERCENT)
-
-        drivetrain.turn_for(RIGHT, 305, DEGREES, 90, PERCENT)
-        drivetrain.drive_for(REVERSE, 70, INCHES, 95, PERCENT)"""
 
 
 #region Parts
@@ -710,7 +667,6 @@ def initialize():
     controller.buttonLeft.pressed(menu.force_submit)
 
 def driver():
-
     wall_stake.constantly_limiting()
     drivetrain.set_drive_velocity(0, PERCENT)
     drivetrain.set_turn_velocity(0, PERCENT)
